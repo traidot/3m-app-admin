@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../dxs-core"
+		},
+		{
+			"path": "../../../.."
+		}
+	],
+	"settings": {
+		"markdown.extension.toc.updateOnSave": false,
+		"typescript.tsdk": "node_modules/typescript/lib"
+	}
+}

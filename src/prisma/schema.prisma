@@ -1,0 +1,979 @@
+// Inventory Management System — Prisma schema
+// Phase 0/1 (Foundation + Identity) + Phase 2 (Master Data) + Phase 4 (Warehouse) + Phase 5 (Logistics).
+// Owner: Backend Developer agent · Issue: DXSA-19
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Identity & RBAC
+// -----------------------------------------------------------------------------
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+}
+
+model User {
+  id             String      @id @default(uuid()) @db.Uuid
+  email          String      @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  phone          String?
+  status         UserStatus  @default(active)
+  lastLoginAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+
+  roles          UserRole[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  prApprovals    PRApproval[]
+  agent          Agent?
+
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
+  name        String
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime         @default(now())
+
+  roles       RolePermission[]
+
+  @@index([resource])
+}
+
+model UserRole {
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  replacedById String?  @db.Uuid
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// -----------------------------------------------------------------------------
+// Audit log (cross-cutting; populated by services)
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String
+  entity     String
+  entityId   String?
+  diff       Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// Master Data — Phase 2
+// -----------------------------------------------------------------------------
+
+enum CommonStatus {
+  active
+  inactive
+}
+
+enum PricingStatus {
+  active
+  expired
+  upcoming
+}
+
+enum Currency {
+  VND
+  USD
+  EUR
+  JPY
+  CNY
+  KRW
+}
+
+model Supplier {
+  id             String       @id @default(uuid()) @db.Uuid
+  code           String       @unique
+  name           String
+  phone          String?
+  email          String?
+  country        String?
+  address        String?
+  taxCode        String?
+  contactPerson  String?
+  paymentTerm    String?
+  notes          String?
+  status         CommonStatus @default(active)
+  // Reserved for future ERP/accounting sync (DXSA-19 Q1).
+  externalId     String?
+  externalSource String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  pricing SupplierPricing[]
+  supplierProducts SupplierProduct[]
+  fieldMapping    SupplierFieldMapping?
+
+  // Procurement relations
+  purchaseOrders  PurchaseOrder[]
+  rfqSubmissions  RFQVendor[]
+  supplierInvoices SupplierInvoice[]
+
+  @@index([status])
+  @@index([country])
+  @@index([deletedAt])
+  @@index([name])
+}
+
+model ProductCategory {
+  id          String       @id @default(uuid()) @db.Uuid
+  code        String       @unique
+  name        String
+  description String?
+  parentId    String?      @db.Uuid
+  sortOrder   Int          @default(0)
+  status      CommonStatus @default(active)
+  // Materialized depth + path for fast tree queries; '/' separated ids.
+  // Maintained by ProductCategoryService.
+  depth       Int          @default(0)
+  path        String       @default("")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  parent   ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children ProductCategory[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([path])
+}
+
+model Product {
+  id           String       @id @default(uuid()) @db.Uuid
+  sku          String       @unique
+  name         String
+  categoryId   String       @db.Uuid
+  unit         String?
+  price        Decimal?     @db.Decimal(18, 4)
+  cost         Decimal?     @db.Decimal(18, 4)
+  currency     Currency     @default(VND)
+  reorderLevel Int?
+  safetyStock  Int?
+  description  String?
+  barcode      String?
+  dimensions   String?
+  weight       Decimal?     @db.Decimal(12, 3)
+  // string[] of image URLs.
+  images       Json?
+  status       CommonStatus @default(active)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  category     ProductCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  pricing      SupplierPricing[]
+  inboundLines InboundLine[]
+  outboundLines OutboundLine[]
+  stocks       InventoryStock[]
+
+  // Procurement relations
+  prLines      PurchaseRequisitionLine[] @relation("PRProduct")
+  poLines      PurchaseOrderLine[]      @relation("POProduct")
+  invoiceLines SupplierInvoiceLine[]    @relation("InvoiceProduct")
+  qcRecords    QualityCheck[]           @relation("QCProduct")
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([barcode])
+  @@index([name])
+}
+
+model SupplierPricing {
+  id            String        @id @default(uuid()) @db.Uuid
+  supplierId    String        @db.Uuid
+  productId     String        @db.Uuid
+  price         Decimal       @db.Decimal(18, 4)
+  currency      Currency      @default(VND)
+  unit          String?
+  moq           Int?
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  status        PricingStatus @default(active)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, productId, currency, effectiveFrom])
+  @@index([supplierId])
+  @@index([productId])
+  @@index([status])
+  @@index([effectiveFrom, effectiveTo])
+  @@index([deletedAt])
+}
+
+// -----------------------------------------------------------------------------
+// Procurement — Phase 3 (Standard Purchase Management)
+// -----------------------------------------------------------------------------
+
+enum PRStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+  partially_converted
+  converted_to_po
+  cancelled
+}
+
+enum POStatus {
+  draft
+  published
+  confirmed
+  receiving
+  received
+  closed
+  cancelled
+}
+
+enum RFQStatus {
+  draft
+  active
+  closed
+  cancelled
+}
+
+enum QCStatus {
+  pending
+  pass
+  fail
+  quarantine
+}
+
+enum InvoiceStatus {
+  draft
+  unpaid
+  paid
+  discrepancy
+  cancelled
+}
+
+model PurchaseRequisition {
+  id              String      @id @default(uuid()) @db.Uuid
+  code            String      @unique
+  requestedById   String      @db.Uuid
+  department      String?
+  priority        String      @default("Normal")
+  status          PRStatus    @default(draft)
+  neededBy        DateTime?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  lines           PurchaseRequisitionLine[]
+  purchaseOrders  PurchaseOrder[]
+  approvals       PRApproval[]
+
+  @@index([status])
+  @@index([requestedById])
+}
+
+model PRApproval {
+  id              String   @id @default(uuid()) @db.Uuid
+  prId            String   @db.Uuid
+  approverId      String   @db.Uuid
+  stage           String   // e.g. "Dept Head", "Finance"
+  status          String   // "approved", "rejected"
+  comment         String?
+  createdAt       DateTime @default(now())
+
+  pr              PurchaseRequisition @relation(fields: [prId], references: [id], onDelete: Cascade)
+  approver        User                @relation(fields: [approverId], references: [id], onDelete: Restrict)
+
+  @@index([prId])
+}
+
+model PurchaseRequisitionLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  prId            String   @db.Uuid
+  productId       String   @db.Uuid
+  qty             Int
+  estimatedPrice  Decimal? @db.Decimal(18, 4)
+  convertedQty    Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  pr              PurchaseRequisition @relation(fields: [prId], references: [id], onDelete: Cascade)
+  product         Product              @relation("PRProduct", fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([prId])
+  @@index([productId])
+}
+
+model PurchaseOrder {
+  id              String      @id @default(uuid()) @db.Uuid
+  code            String      @unique
+  prId            String?     @db.Uuid
+  supplierId      String      @db.Uuid
+  status          POStatus    @default(draft)
+  orderDate       DateTime    @default(now())
+  expectedDate    DateTime?
+  totalAmount     Decimal     @db.Decimal(18, 4)
+  currency        Currency    @default(VND)
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  pr              PurchaseRequisition? @relation(fields: [prId], references: [id], onDelete: SetNull)
+  supplier        Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  lines           PurchaseOrderLine[]
+  invoices        SupplierInvoice[]
+  qualityChecks   QualityCheck[]
+  inbounds        Inbound[]            @relation("POInbound")
+
+  @@index([status])
+  @@index([supplierId])
+}
+
+model PurchaseOrderLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  poId            String   @db.Uuid
+  productId       String   @db.Uuid
+  qty             Int
+  receivedQty     Int      @default(0)
+  unitPrice       Decimal  @db.Decimal(18, 4)
+  tax             Decimal  @default(0) @db.Decimal(18, 4)
+  lineTotal       Decimal  @db.Decimal(18, 4)
+  createdAt       DateTime @default(now())
+
+  po              PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product         Product       @relation("POProduct", fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([poId])
+  @@index([productId])
+}
+
+model RFQ {
+  id              String      @id @default(uuid()) @db.Uuid
+  code            String      @unique
+  status          RFQStatus   @default(draft)
+  closingDate     DateTime?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  vendors         RFQVendor[]
+  
+  @@index([status])
+}
+
+model RFQVendor {
+  id              String   @id @default(uuid()) @db.Uuid
+  rfqId           String   @db.Uuid
+  supplierId      String   @db.Uuid
+  quotedAmount    Decimal? @db.Decimal(18, 4)
+  hasSubmitted    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  rfq             RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  supplier        Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([rfqId, supplierId])
+}
+
+model QualityCheck {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique
+  poId            String?  @db.Uuid
+  inboundId       String?  @db.Uuid
+  productId       String   @db.Uuid
+  inspectorId     String   @db.Uuid
+  status          QCStatus @default(pending)
+  score           Int?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  po              PurchaseOrder? @relation(fields: [poId], references: [id], onDelete: SetNull)
+  inbound         Inbound?       @relation(fields: [inboundId], references: [id], onDelete: SetNull)
+  product         Product        @relation("QCProduct", fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([productId])
+}
+
+model SupplierInvoice {
+  id              String        @id @default(uuid()) @db.Uuid
+  code            String        @unique // Invoice No. from supplier
+  poId            String        @db.Uuid
+  supplierId      String        @db.Uuid
+  status          InvoiceStatus @default(draft)
+  issueDate       DateTime
+  dueDate         DateTime?
+  subtotal        Decimal       @db.Decimal(18, 4)
+  tax             Decimal       @db.Decimal(18, 4)
+  totalAmount     Decimal       @db.Decimal(18, 4)
+  currency        Currency      @default(VND)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  po              PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Restrict)
+  supplier        Supplier      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  lines           SupplierInvoiceLine[]
+
+  @@index([status])
+  @@index([poId])
+}
+
+model SupplierInvoiceLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  invoiceId       String   @db.Uuid
+  productId       String   @db.Uuid
+  qty             Int
+  unitPrice       Decimal  @db.Decimal(18, 4)
+  lineTotal       Decimal  @db.Decimal(18, 4)
+
+  invoice         SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product         Product         @relation("InvoiceProduct", fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+}
+
+// -----------------------------------------------------------------------------
+// Warehouse — Phase 4
+// -----------------------------------------------------------------------------
+
+enum InboundStatus {
+  draft
+  posted
+  cancelled
+}
+
+enum OutboundStatus {
+  draft
+  allocated
+  picked
+  shipped
+  cancelled
+}
+
+enum InboundSourceType {
+  po
+  return_inbound
+  transfer_in
+  manual
+}
+
+enum OutboundTargetType {
+  customer
+  warehouse
+  supplier
+}
+
+enum StockMovementType {
+  inbound
+  outbound
+  adjustment
+  return_movement
+  reservation
+  release
+}
+
+model Warehouse {
+  id        String       @id @default(uuid()) @db.Uuid
+  code      String       @unique
+  name      String
+  address   String?
+  status    CommonStatus @default(active)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
+
+  inbounds   Inbound[]
+  outbounds  Outbound[]
+  stocks     InventoryStock[]
+  movements  StockMovement[]
+  containers Container[]
+
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Inbound {
+  id           String            @id @default(uuid()) @db.Uuid
+  code         String            @unique
+  warehouseId  String            @db.Uuid
+  sourceType   InboundSourceType
+  sourceId     String?
+  notes        String?
+  status       InboundStatus     @default(draft)
+  postedAt     DateTime?
+  postedById   String?           @db.Uuid
+  cancelledAt  DateTime?
+  totalQty     Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  deletedAt    DateTime?
+
+  warehouse Warehouse     @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lines     InboundLine[]
+
+  // Procurement relations
+  poId          String?        @db.Uuid
+  purchaseOrder PurchaseOrder? @relation("POInbound", fields: [poId], references: [id], onDelete: SetNull)
+  qualityChecks QualityCheck[]
+
+  @@index([status])
+  @@index([warehouseId])
+  @@index([sourceType, sourceId])
+  @@index([deletedAt])
+}
+
+model InboundLine {
+  id        String    @id @default(uuid()) @db.Uuid
+  inboundId String    @db.Uuid
+  productId String    @db.Uuid
+  qty       Int
+  lot       String    @default("")
+  expiry    DateTime?
+  note      String?
+  createdAt DateTime  @default(now())
+
+  inbound Inbound @relation(fields: [inboundId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([inboundId])
+  @@index([productId])
+}
+
+model Outbound {
+  id           String             @id @default(uuid()) @db.Uuid
+  code         String             @unique
+  warehouseId  String             @db.Uuid
+  targetType   OutboundTargetType
+  targetId     String?
+  notes        String?
+  status       OutboundStatus     @default(draft)
+  scheduledAt  DateTime?
+  allocatedAt  DateTime?
+  pickedAt     DateTime?
+  shippedAt    DateTime?
+  cancelledAt  DateTime?
+  totalQty     Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  deletedAt    DateTime?
+
+  warehouse Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lines     OutboundLine[]
+  loadItems ContainerLoadItem[]
+
+  @@index([status])
+  @@index([warehouseId])
+  @@index([targetType, targetId])
+  @@index([deletedAt])
+}
+
+model OutboundLine {
+  id           String   @id @default(uuid()) @db.Uuid
+  outboundId   String   @db.Uuid
+  productId    String   @db.Uuid
+  requestedQty Int
+  allocatedQty Int      @default(0)
+  pickedQty    Int      @default(0)
+  shippedQty   Int      @default(0)
+  note         String?
+  createdAt    DateTime @default(now())
+
+  outbound    Outbound             @relation(fields: [outboundId], references: [id], onDelete: Cascade)
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  allocations OutboundAllocation[]
+
+  @@index([outboundId])
+  @@index([productId])
+}
+
+model OutboundAllocation {
+  id               String   @id @default(uuid()) @db.Uuid
+  outboundLineId   String   @db.Uuid
+  inventoryStockId String   @db.Uuid
+  lot              String   @default("")
+  qty              Int
+  createdAt        DateTime @default(now())
+
+  outboundLine OutboundLine   @relation(fields: [outboundLineId], references: [id], onDelete: Cascade)
+  stock        InventoryStock @relation(fields: [inventoryStockId], references: [id], onDelete: Restrict)
+
+  @@index([outboundLineId])
+  @@index([inventoryStockId])
+}
+
+model InventoryStock {
+  id          String    @id @default(uuid()) @db.Uuid
+  productId   String    @db.Uuid
+  warehouseId String    @db.Uuid
+  lot         String    @default("")
+  expiry      DateTime?
+  onHandQty   Int       @default(0)
+  reservedQty Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse   Warehouse            @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  movements   StockMovement[]
+  allocations OutboundAllocation[]
+
+  @@unique([productId, warehouseId, lot])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([expiry])
+}
+
+model StockMovement {
+  id               String            @id @default(uuid()) @db.Uuid
+  inventoryStockId String            @db.Uuid
+  warehouseId      String            @db.Uuid
+  productId        String            @db.Uuid
+  type             StockMovementType
+  qty              Int
+  balanceAfter     Int
+  // 'inbound' | 'outbound' | 'adjustment'
+  refDocType       String?
+  refDocId         String?
+  reason           String?
+  byUserId         String?           @db.Uuid
+  at               DateTime          @default(now())
+
+  stock     InventoryStock @relation(fields: [inventoryStockId], references: [id], onDelete: Cascade)
+  warehouse Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  @@index([inventoryStockId])
+  @@index([refDocType, refDocId])
+  @@index([at])
+  @@index([productId, warehouseId, at])
+}
+
+// -----------------------------------------------------------------------------
+// Logistics — Phase 5
+// -----------------------------------------------------------------------------
+
+enum ContainerStatus {
+  draft
+  planned
+  loading
+  loaded
+  shipped
+  cancelled
+}
+
+enum ContainerType {
+  ft20
+  ft40
+  ft40hc
+  refrigerated
+  custom
+}
+
+model Container {
+  id                 String          @id @default(uuid()) @db.Uuid
+  code               String          @unique
+  name               String?
+  type               ContainerType
+  maxVolumeM3        Decimal         @db.Decimal(12, 3)
+  maxWeightKg        Decimal         @db.Decimal(12, 3)
+  originWarehouseId  String?         @db.Uuid
+  destination        String?
+  status             ContainerStatus @default(draft)
+  plannedDepartureAt DateTime?
+  departedAt         DateTime?
+  arrivedAt          DateTime?
+  cancelledAt        DateTime?
+  notes              String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  deletedAt          DateTime?
+
+  originWarehouse Warehouse?          @relation(fields: [originWarehouseId], references: [id], onDelete: SetNull)
+  loadItems       ContainerLoadItem[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@index([originWarehouseId])
+  @@index([plannedDepartureAt])
+}
+
+model ContainerLoadItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  containerId String   @db.Uuid
+  outboundId  String   @db.Uuid
+  qty         Int
+  volumeM3    Decimal? @db.Decimal(12, 3)
+  weightKg    Decimal? @db.Decimal(12, 3)
+  position    Int      @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  container Container @relation(fields: [containerId], references: [id], onDelete: Cascade)
+  outbound  Outbound  @relation(fields: [outboundId], references: [id], onDelete: Restrict)
+
+  @@unique([containerId, outboundId])
+  @@index([containerId])
+  @@index([outboundId])
+}
+
+// -----------------------------------------------------------------------------
+// Notifications — Phase 7
+// -----------------------------------------------------------------------------
+
+enum NotificationType {
+  alert
+  info
+  task
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  // Free-form context (productId, warehouseId, sku, onHand, reorderLevel, …).
+  meta      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+// -----------------------------------------------------------------------------
+// eSIM Marketplace (3M Core) — New Models
+// -----------------------------------------------------------------------------
+
+enum AgentTier {
+  PLATINUM
+  GOLD
+  SILVER
+  RETAIL
+}
+
+model Agent {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String?   @unique @db.Uuid
+  name          String
+  tier          AgentTier @default(RETAIL)
+  creditLimit   Decimal   @default(0) @db.Decimal(18, 4)
+  balance       Decimal   @default(0) @db.Decimal(18, 4)
+  webhookUrl    String?
+  apiKey        String?   @unique
+  status        CommonStatus @default(active)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallets       Wallet[]
+  orders        DigitalOrder[]
+  pricingRules  PricingRule[]
+
+  @@index([tier])
+  @@index([status])
+}
+
+model MarketplaceProduct {
+  id            String    @id @default(uuid()) @db.Uuid
+  code          String    @unique // Unified code for 3M
+  name          String
+  description   String?
+  region        String?   // e.g. "Global", "Asia", "Japan"
+  dataAmount    Int       // in MB
+  validityDays  Int
+  status        CommonStatus @default(active)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  supplierProducts SupplierProduct[]
+  pricingRules     PricingRule[]
+  orders           DigitalOrder[]
+
+  @@index([region])
+  @@index([status])
+}
+
+model SupplierProduct {
+  id                  String    @id @default(uuid()) @db.Uuid
+  supplierId          String    @db.Uuid
+  marketplaceProductId String    @db.Uuid
+  externalCode        String    // Code from supplier API
+  costPrice           Decimal   @db.Decimal(18, 4)
+  currency            Currency  @default(USD)
+  isAvailable         Boolean   @default(true)
+  lastSyncAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  supplier           Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  marketplaceProduct MarketplaceProduct @relation(fields: [marketplaceProductId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, externalCode])
+  @@index([marketplaceProductId])
+}
+
+model PricingRule {
+  id                  String    @id @default(uuid()) @db.Uuid
+  marketplaceProductId String?   @db.Uuid // If null, applies to all products
+  agentId             String?   @db.Uuid // If null, applies to tier
+  tier                AgentTier?
+  markupType          String    @default("PERCENT") // PERCENT or FIXED
+  markupValue         Decimal   @db.Decimal(18, 4)
+  priority            Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  marketplaceProduct  MarketplaceProduct? @relation(fields: [marketplaceProductId], references: [id], onDelete: Cascade)
+  agent               Agent?              @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([tier])
+}
+
+model Wallet {
+  id          String    @id @default(uuid()) @db.Uuid
+  agentId     String    @db.Uuid
+  currency    Currency  @default(USD)
+  balance     Decimal   @default(0) @db.Decimal(18, 4)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@unique([agentId, currency])
+}
+
+model WalletTransaction {
+  id            String    @id @default(uuid()) @db.Uuid
+  walletId      String    @db.Uuid
+  amount        Decimal   @db.Decimal(18, 4) // Positive for top-up, negative for purchase
+  type          String    // PURCHASE, TOPUP, REFUND, ADJUSTMENT
+  referenceId   String?   // Order ID or Payment ID
+  description   String?
+  createdAt     DateTime  @default(now())
+
+  wallet        Wallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([createdAt])
+}
+
+model DigitalOrder {
+  id                  String    @id @default(uuid()) @db.Uuid
+  agentId             String    @db.Uuid
+  marketplaceProductId String    @db.Uuid
+  supplierProductId   String?   @db.Uuid // Which supplier was used
+  status              String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED
+  qty                 Int       @default(1)
+  unitPrice           Decimal   @db.Decimal(18, 4)
+  totalAmount         Decimal   @db.Decimal(18, 4)
+  currency            Currency  @default(USD)
+  externalOrderId     String?   // Supplier's order ID
+  activationCode      String?   // QR code URL or LPA string
+  customerEmail       String?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  agent               Agent              @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  marketplaceProduct  MarketplaceProduct @relation(fields: [marketplaceProductId], references: [id], onDelete: Restrict)
+
+  @@index([agentId])
+  @@index([status])
+}
+
+model SupplierFieldMapping {
+  id          String   @id @default(uuid()) @db.Uuid
+  supplierId  String   @db.Uuid @unique
+  mapping     Json     // Quy tắc ánh xạ: { "system_field": "supplier_excel_column" }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}
