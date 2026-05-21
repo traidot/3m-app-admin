@@ -1,11 +1,5 @@
-import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
+import AgentSettingsView from '@/views/agent/settings/AgentSettingsView'
 
-const Page = () => (
-  <AdminPlaceholder
-    group='Agent'
-    title='Quản lý app'
-    description='Cấu hình app: thông tin chung, branding, liên hệ...'
-  />
-)
+const Page = () => <AgentSettingsView />
 
 export default Page

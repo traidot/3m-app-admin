@@ -366,7 +366,7 @@ const AgentPackagesView = () => {
                         variant='tonal'
                         color={pkg.simType === 'esim' ? 'primary' : 'warning'}
                         label={pkg.simType === 'esim' ? 'eSIM' : 'Vật lý'}
-                        icon={<i className={`${pkg.simType === 'esim' ? 'tabler-device-mobile' : 'tabler-sim'} text-[14px]`} />}
+                        icon={<i className={`${pkg.simType === 'esim' ? 'tabler-device-mobile' : 'tabler-device-sd-card'} text-[14px]`} />}
                       />
                     </TableCell>
                     <TableCell>

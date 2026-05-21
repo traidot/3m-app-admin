@@ -18,12 +18,13 @@ const horizontalMenuData = (
     { label: 'Bảng giá', icon: 'tabler-receipt-2', href: getUrl('/3m/packages'), roles: ['3m'] },
 
     { label: 'Bảng điều khiển', icon: 'tabler-smart-home', href: getUrl('/agent/dashboard'), roles: ['agent'] },
-    { label: 'App', icon: 'tabler-app-window', href: getUrl('/agent/app'), roles: ['agent'] },
     { label: 'Gói cước', icon: 'tabler-packages', href: getUrl('/agent/packages'), roles: ['agent'] },
     { label: 'Khách hàng', icon: 'tabler-users', href: getUrl('/agent/customers'), roles: ['agent'] },
     { label: 'Đơn hàng', icon: 'tabler-shopping-cart', href: getUrl('/agent/orders'), roles: ['agent'] },
+    { label: 'Coupon', icon: 'tabler-discount', href: getUrl('/agent/coupons'), roles: ['agent'] },
     { label: 'Người dùng', icon: 'tabler-user-shield', href: getUrl('/agent/users'), roles: ['agent'] },
-    { label: 'Phân quyền', icon: 'tabler-key', href: getUrl('/agent/roles'), roles: ['agent'] }
+    { label: 'Phân quyền', icon: 'tabler-key', href: getUrl('/agent/roles'), roles: ['agent'] },
+    { label: 'Cấu hình', icon: 'tabler-settings-cog', href: getUrl('/agent/app'), roles: ['agent'] }
   ]
 
   return items as HorizontalMenuDataType[]

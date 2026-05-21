@@ -21,6 +21,8 @@ import InputAdornment from '@mui/material/InputAdornment'
 import Tooltip from '@mui/material/Tooltip'
 import Stack from '@mui/material/Stack'
 
+import OrderDrawer from './OrderDrawer'
+
 type OrderStatus = 'pending' | 'paid' | 'activated' | 'completed' | 'cancelled' | 'refunded'
 type PaymentMethod = 'momo' | 'vnpay' | 'card' | 'bank_transfer' | 'wallet' | 'cod'
 type SimType = 'esim' | 'physical'
@@ -205,6 +207,7 @@ const channelLabel: Record<Channel, string> = {
 }
 
 const AgentOrdersView = () => {
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [payment, setPayment] = useState('all')
@@ -284,9 +287,6 @@ const AgentOrdersView = () => {
         <Stack direction='row' spacing={2}>
           <Button variant='tonal' color='secondary' startIcon={<i className='tabler-download' />}>
             Xuất Excel
-          </Button>
-          <Button variant='contained' startIcon={<i className='tabler-plus' />}>
-            Tạo đơn mới
           </Button>
         </Stack>
       </Box>
@@ -470,7 +470,7 @@ const AgentOrdersView = () => {
                       variant='tonal'
                       color={o.simType === 'esim' ? 'primary' : 'warning'}
                       label={o.simType === 'esim' ? 'eSIM' : 'Vật lý'}
-                      icon={<i className={`${o.simType === 'esim' ? 'tabler-device-mobile' : 'tabler-sim'} text-[14px]`} />}
+                      icon={<i className={`${o.simType === 'esim' ? 'tabler-device-mobile' : 'tabler-device-sd-card'} text-[14px]`} />}
                     />
                   </TableCell>
                   <TableCell align='right'>
@@ -504,7 +504,7 @@ const AgentOrdersView = () => {
                   <TableCell align='right'>
                     <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
                       <Tooltip title='Xem chi tiết'>
-                        <IconButton size='small'>
+                        <IconButton size='small' onClick={() => setActiveOrder(o)}>
                           <i className='tabler-eye text-[20px]' />
                         </IconButton>
                       </Tooltip>
@@ -533,6 +533,15 @@ const AgentOrdersView = () => {
           </Table>
         </TableContainer>
       </Card>
+
+      <OrderDrawer
+        open={!!activeOrder}
+        order={activeOrder}
+        onClose={() => setActiveOrder(null)}
+        paymentLabel={activeOrder ? paymentMeta[activeOrder.payment].label : ''}
+        channelLabel={activeOrder ? channelLabel[activeOrder.channel] : ''}
+        statusMeta={activeOrder ? statusMeta[activeOrder.status] : { label: '', color: 'secondary' }}
+      />
     </Box>
   )
 }

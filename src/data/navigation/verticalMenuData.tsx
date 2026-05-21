@@ -24,12 +24,13 @@ const verticalMenuData = (dictionary: Awaited<ReturnType<typeof getDictionary>>)
       roles: ['agent'],
       children: [
         { label: 'Bảng điều khiển', icon: 'tabler-smart-home', href: getUrl('/agent/dashboard') },
-        { label: 'Quản lý app', icon: 'tabler-app-window', href: getUrl('/agent/app') },
         { label: 'Quản lý gói cước', icon: 'tabler-packages', href: getUrl('/agent/packages') },
         { label: 'Quản lý khách hàng', icon: 'tabler-users', href: getUrl('/agent/customers') },
         { label: 'Quản lý đơn hàng', icon: 'tabler-shopping-cart', href: getUrl('/agent/orders') },
+        { label: 'Quản lý coupon', icon: 'tabler-discount', href: getUrl('/agent/coupons') },
         { label: 'Người dùng nội bộ', icon: 'tabler-user-shield', href: getUrl('/agent/users') },
-        { label: 'Phân quyền vai trò', icon: 'tabler-key', href: getUrl('/agent/roles') }
+        { label: 'Phân quyền vai trò', icon: 'tabler-key', href: getUrl('/agent/roles') },
+        { label: 'Cấu hình hệ thống', icon: 'tabler-settings-cog', href: getUrl('/agent/app') }
       ]
     }
   ]
