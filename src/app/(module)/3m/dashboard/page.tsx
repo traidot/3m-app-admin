@@ -1,14 +1,7 @@
-'use client'
+import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
 
-import AdminDashboard from '@/views/dashboard/AdminDashboard'
-import Box from '@mui/material/Box'
+const Page = () => (
+  <AdminPlaceholder group='Admin 3M' title='Bảng điều khiển tổng' description='Tổng quan hệ thống 3M.' />
+)
 
-const AdminDashboardPage = () => {
-  return (
-    <Box>
-      <AdminDashboard />
-    </Box>
-  )
-}
-
-export default AdminDashboardPage
+export default Page

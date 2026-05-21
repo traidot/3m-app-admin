@@ -59,24 +59,24 @@ const themeConfig: Config = {
   settingsCookieName: 'test-theme-v3',
   mode: 'light', // 'system', 'light', 'dark'
   skin: 'bordered', // 'default', 'bordered'
-  semiDark: false, // true, false
+  semiDark: true, // true, false
   layout: 'vertical', // 'vertical', 'collapsed', 'horizontal'
   layoutPadding: 16, // Common padding for header, content, footer layout components (in px)
   compactContentWidth: 1440, // in px
   navbar: {
     type: 'fixed', // 'fixed', 'static'
     contentWidth: 'wide', // 'compact', 'wide'
-    floating: true, //! true, false (This will not work in the Horizontal Layout)
-    detached: true, //! true, false (This will not work in the Horizontal Layout or floating navbar is enabled)
-    blur: true // true, false
+    floating: false, //! true, false (This will not work in the Horizontal Layout)
+    detached: false, //! true, false (This will not work in the Horizontal Layout or floating navbar is enabled)
+    blur: false // true, false
   },
   contentWidth: 'wide', // 'compact', 'wide'
   footer: {
     type: 'static', // 'fixed', 'static'
     contentWidth: 'wide', // 'compact', 'wide'
-    detached: true //! true, false (This will not work in the Horizontal Layout)
+    detached: false //! true, false (This will not work in the Horizontal Layout)
   },
-  disableRipple: false, // true, false
+  disableRipple: true, // true, false
   toastPosition: 'top-right' // 'top-right', 'top-center', 'top-left', 'bottom-right', 'bottom-center', 'bottom-left'
 }
 

@@ -55,9 +55,7 @@ const RootLayout = async (props: ChildrenType) => {
         <body className='flex is-full min-bs-full flex-auto flex-col'>
           <InitColorSchemeScript attribute='data' defaultMode={systemMode} />
           <I18nProvider dict={loadDictionary(locale)} locale={locale}>
-            <RoleProvider>
-              {children}
-            </RoleProvider>
+            <RoleProvider>{children}</RoleProvider>
           </I18nProvider>
         </body>
       </html>

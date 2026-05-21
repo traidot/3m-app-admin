@@ -1,33 +1,49 @@
 'use client'
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 
-export type Role = 'admin' | 'agent'
+export type Role = '3m' | 'agent'
+
+const STORAGE_KEY = 'app.role'
 
 interface RoleContextType {
-  role: Role
+  role: Role | null
   setRole: (role: Role) => void
+  clearRole: () => void
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined)
 
 export const RoleProvider = ({ children }: { children: ReactNode }) => {
-  // Default to admin for now
-  const [role, setRole] = useState<Role>('admin')
+  const [role, setRoleState] = useState<Role | null>(null)
 
-  return (
-    <RoleContext.Provider value={{ role, setRole }}>
-      {children}
-    </RoleContext.Provider>
-  )
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(STORAGE_KEY)
+      if (stored === '3m' || stored === 'agent') setRoleState(stored)
+    } catch {}
+  }, [])
+
+  const setRole = useCallback((next: Role) => {
+    setRoleState(next)
+    try {
+      sessionStorage.setItem(STORAGE_KEY, next)
+    } catch {}
+  }, [])
+
+  const clearRole = useCallback(() => {
+    setRoleState(null)
+    try {
+      sessionStorage.removeItem(STORAGE_KEY)
+    } catch {}
+  }, [])
+
+  return <RoleContext.Provider value={{ role, setRole, clearRole }}>{children}</RoleContext.Provider>
 }
 
 export const useRole = () => {
-  const context = useContext(RoleContext)
-  
-  if (!context) {
-    throw new Error('useRole must be used within a RoleProvider')
-  }
-  
-  return context
+  const ctx = useContext(RoleContext)
+  if (!ctx) throw new Error('useRole must be used within a RoleProvider')
+  return ctx
 }

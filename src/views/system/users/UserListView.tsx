@@ -109,7 +109,7 @@ const UserListView = () => {
       <PageHeader
         title='User & Access Control'
         description='Manage system users, roles, and security permissions'
-        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'System Engine' }, { label: 'Users & Roles', href: '/3m/system/users' }]}
+        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'System Engine' }, { label: 'Users & Roles', href: '/system/users' }]}
       />
 
       <Card className='mt-6'>

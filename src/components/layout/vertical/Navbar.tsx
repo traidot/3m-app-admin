@@ -4,7 +4,11 @@ import NavbarContent from './NavbarContent'
 
 const Navbar = () => {
   return (
-    <LayoutNavbar>
+    <LayoutNavbar
+      overrideStyles={{
+        borderBottom: '1px solid var(--mui-palette-divider)'
+      }}
+    >
       <NavbarContent />
     </LayoutNavbar>
   )

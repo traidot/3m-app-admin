@@ -57,7 +57,7 @@ const ReportsView = () => {
       <PageHeader
         title='Procurement Intelligence'
         description='Generate deep insights and export structured reports for strategic buying decisions'
-        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Procurement Reports', href: '/3m/reports' }]}
+        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Procurement Reports', href: '/reports' }]}
       />
 
       <Grid2 container spacing={6} className='mt-6'>
@@ -97,7 +97,7 @@ const ReportsView = () => {
           <Card>
             <Box className='p-6 flex items-center justify-between border-be'>
               <Typography variant='h6' className='font-semibold'>Recent Procurement Operations History</Typography>
-              <Button component={Link} href='/3m/reports/audit' size='small' variant='tonal' color='secondary' className='font-medium'>Full Audit Trail</Button>
+              <Button component={Link} href='/reports/audit' size='small' variant='tonal' color='secondary' className='font-medium'>Full Audit Trail</Button>
             </Box>
             <CardContent className='p-0'>
               {[

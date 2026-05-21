@@ -27,15 +27,6 @@ import { useSettings } from '@core/hooks/useSettings'
 import navigationCustomStyles from '@core/styles/vertical/navigationCustomStyles'
 import defaultMenuData from '@/data/navigation/verticalMenuData'
 
-// Role Hook Import
-import { useRole } from '@/contexts/RoleContext'
-import Typography from '@mui/material/Typography'
-import Box from '@mui/material/Box'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
-import ToggleButton from '@mui/material/ToggleButton'
-
-import { useRouter } from 'next/navigation'
-
 type Props = {
   dictionary: Awaited<ReturnType<typeof getDictionary>>
   mode: Mode
@@ -62,12 +53,10 @@ const Navigation = (props: Props) => {
   const { dictionary, mode } = props
 
   // Hooks
-  const router = useRouter()
   const verticalNavOptions = useVerticalNav()
   const { updateSettings, settings } = useSettings()
   const { mode: muiMode, systemMode: muiSystemMode } = useColorScheme()
   const theme = useTheme()
-  const { role, setRole } = useRole()
 
   const customMenuData = useMemo(() => {
     const baseMenu = defaultMenuData(dictionary)
@@ -155,28 +144,6 @@ const Navigation = (props: Props) => {
         )}
       </NavHeader>
       <StyledBoxForShadow ref={shadowRef} />
-      
-      {!(isCollapsed && !isHovered) && (
-        <Box className="px-6 pb-2 pt-4 flex flex-col gap-2">
-          <Typography variant='caption' className='text-slate-400 font-bold uppercase'>Chế độ (Demo)</Typography>
-          <ToggleButtonGroup
-            color="primary"
-            value={role}
-            exclusive
-            onChange={(_, newRole) => {
-              if (newRole) {
-                setRole(newRole)
-                router.push(newRole === 'admin' ? '/3m/dashboard' : '/agent/dashboard')
-              }
-            }}
-            size="small"
-            fullWidth
-          >
-            <ToggleButton value="admin" className='text-xs'>Admin 3M</ToggleButton>
-            <ToggleButton value="agent" className='text-xs'>Đại lý</ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-      )}
 
       <VerticalMenu dictionary={dictionary} scrollMenu={scrollMenu} menuData={customMenuData} />
     </VerticalNav>

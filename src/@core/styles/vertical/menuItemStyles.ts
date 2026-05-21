@@ -65,6 +65,7 @@ const menuItemStyles = (verticalNavOptions: VerticalNavState, theme: Theme): Men
       paddingBlock: '8px',
       paddingInline: '12px',
       borderRadius: 'var(--border-radius)',
+      color: 'var(--mui-palette-text-secondary)',
       ...(!(isCollapsed && !isHovered) && {
         '&:has(.MuiChip-root)': {
           paddingBlock: theme.spacing(1.75)
@@ -77,11 +78,16 @@ const menuItemStyles = (verticalNavOptions: VerticalNavState, theme: Theme): Men
       }),
       ...(!active && {
         '&:hover, &:focus-visible': {
-          backgroundColor: 'var(--mui-palette-action-hover)'
+          backgroundColor: 'var(--mui-palette-action-hover)',
+          color: 'var(--mui-palette-text-primary)'
         },
         '&[aria-expanded="true"]': {
-          backgroundColor: 'var(--mui-palette-action-selected)'
+          backgroundColor: 'var(--mui-palette-action-selected)',
+          color: 'var(--mui-palette-text-primary)'
         }
+      }),
+      ...(active && {
+        color: 'var(--mui-palette-primary-contrastText) !important'
       })
     }),
     icon: ({ level }) => ({

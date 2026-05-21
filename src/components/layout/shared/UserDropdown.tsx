@@ -40,7 +40,7 @@ import { clearTokenCache } from '@/lib/axios-client'
 import { AuthService } from '@/services/auth/authService'
 
 // Component Imports
-import ProfileDialog from '@/app/(module)/3m/profile/ProfileDialog'
+import ProfileDialog from '@/app/(module)/profile/ProfileDialog'
 import ChangePasswordDialog from '@/components/common/ChangePasswordDialog'
 
 // Translation Imports

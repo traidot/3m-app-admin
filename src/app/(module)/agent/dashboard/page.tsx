@@ -1,14 +1,7 @@
-'use client'
+import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
 
-import AgentDashboard from '@/views/dashboard/AgentDashboard'
-import Box from '@mui/material/Box'
+const Page = () => (
+  <AdminPlaceholder group='Agent' title='Bảng điều khiển' description='Tổng quan app của đại lý.' />
+)
 
-const AgentDashboardPage = () => {
-  return (
-    <Box>
-      <AgentDashboard />
-    </Box>
-  )
-}
-
-export default AgentDashboardPage
+export default Page

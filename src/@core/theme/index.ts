@@ -25,13 +25,13 @@ const theme = (settings: Settings, mode: SystemMode, direction: Theme['direction
     colorSchemes: colorSchemes(settings.skin as Skin),
     ...spacing,
     shape: {
-      borderRadius: 6,
+      borderRadius: 4,
       customBorderRadius: {
         xs: 2,
-        sm: 4,
-        md: 6,
-        lg: 8,
-        xl: 10
+        sm: 3,
+        md: 4,
+        lg: 6,
+        xl: 8
       }
     },
     shadows: shadows(mode),

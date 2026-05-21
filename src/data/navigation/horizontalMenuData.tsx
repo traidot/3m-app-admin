@@ -2,63 +2,31 @@
 import type { HorizontalMenuDataType } from '@/types/menuTypes'
 import type { getDictionary } from '@/utils/getDictionary'
 
-const horizontalMenuData = (dictionary: Awaited<ReturnType<typeof getDictionary>>): HorizontalMenuDataType[] => {
-  const getUrl = (path: string) => path
-  const menuDict = (dictionary as any).screens?.menu || (dictionary as any).menu || {}
+// Mỗi item có thể gắn `roles` để VerticalMenu/HorizontalMenu lọc theo role hiện hành.
+type MenuItem = HorizontalMenuDataType & { roles?: string[] }
 
-  return [
-    {
-      label: menuDict.dashboard || 'Dashboard',
-      icon: 'tabler-smart-home',
-      href: getUrl('/dashboard')
-    },
-    {
-      label: 'Operations',
-      icon: 'tabler-settings',
-      children: [
-        {
-          label: 'Inbound',
-          icon: 'tabler-arrow-down-circle',
-          href: getUrl('/operations/inbound'),
-          exactMatch: false,
-          activeUrl: '/operations/inbound'
-        },
-        {
-          label: 'Outbound',
-          icon: 'tabler-arrow-up-circle',
-          href: getUrl('/operations/outbound'),
-          exactMatch: false,
-          activeUrl: '/operations/outbound'
-        }
-      ]
-    },
-    {
-      label: 'Partners',
-      icon: 'tabler-building-store',
-      href: getUrl('/partners')
-    },
-    {
-      label: 'Reports',
-      icon: 'tabler-report-analytics',
-      href: getUrl('/reports')
-    },
-    {
-      label: 'System',
-      icon: 'tabler-settings-cog',
-      children: [
-        {
-          label: 'Users',
-          icon: 'tabler-users',
-          href: getUrl('/system/users')
-        },
-        {
-          label: 'Settings',
-          icon: 'tabler-settings',
-          href: getUrl('/system/settings')
-        },
-      ]
-    }
+const horizontalMenuData = (
+  dictionary: Awaited<ReturnType<typeof getDictionary>>
+): HorizontalMenuDataType[] => {
+  const getUrl = (path: string) => path
+
+  const items: MenuItem[] = [
+    { label: 'Bảng điều khiển', icon: 'tabler-smart-home', href: getUrl('/3m/dashboard'), roles: ['3m'] },
+    { label: 'Đại lý', icon: 'tabler-building-store', href: getUrl('/3m/agents'), roles: ['3m'] },
+    { label: 'Khách hàng', icon: 'tabler-users', href: getUrl('/3m/customers'), roles: ['3m'] },
+    { label: 'Đơn hàng', icon: 'tabler-shopping-cart', href: getUrl('/3m/orders'), roles: ['3m'] },
+    { label: 'Bảng giá', icon: 'tabler-receipt-2', href: getUrl('/3m/packages'), roles: ['3m'] },
+
+    { label: 'Bảng điều khiển', icon: 'tabler-smart-home', href: getUrl('/agent/dashboard'), roles: ['agent'] },
+    { label: 'App', icon: 'tabler-app-window', href: getUrl('/agent/app'), roles: ['agent'] },
+    { label: 'Gói cước', icon: 'tabler-packages', href: getUrl('/agent/packages'), roles: ['agent'] },
+    { label: 'Khách hàng', icon: 'tabler-users', href: getUrl('/agent/customers'), roles: ['agent'] },
+    { label: 'Đơn hàng', icon: 'tabler-shopping-cart', href: getUrl('/agent/orders'), roles: ['agent'] },
+    { label: 'Người dùng', icon: 'tabler-user-shield', href: getUrl('/agent/users'), roles: ['agent'] },
+    { label: 'Phân quyền', icon: 'tabler-key', href: getUrl('/agent/roles'), roles: ['agent'] }
   ]
+
+  return items as HorizontalMenuDataType[]
 }
 
 export default horizontalMenuData
