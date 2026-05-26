@@ -1,7 +1,5 @@
-import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
+import AgentDashboard from '@/views/agent/dashboard/AgentDashboard'
 
-const Page = () => (
-  <AdminPlaceholder group='Agent' title='Bảng điều khiển' description='Tổng quan app của đại lý.' />
-)
+const Page = () => <AgentDashboard />
 
 export default Page

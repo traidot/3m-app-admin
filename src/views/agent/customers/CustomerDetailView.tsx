@@ -40,7 +40,7 @@ import { CUSTOMERS, channelLabel, daysAgo, initials, statusChip, typeChip, type 
 import CustomerDrawer, { type DrawerMode } from './CustomerDrawer'
 import { COUPONS, STATUS_META, type Coupon } from '../coupons/data'
 
-type Props = { customerId: string }
+type Props = { customerId: string; backUrl?: string }
 
 const RECENT_ORDERS = [
   { id: 'ORD-202605-0148', date: '2026-05-20', package: 'eSIM đi Nhật Bản', country: '🇯🇵 Nhật Bản', amount: 149_000, status: 'Hoàn tất' as const, color: 'success' as const },
@@ -181,7 +181,7 @@ const POINTS_EARNED_LIFETIME = 6_120
 const POINTS_REDEEMED_LIFETIME = 1_840
 const POINTS_EXPIRING_NEXT = 340 // tháng tới
 
-const CustomerDetailView = ({ customerId }: Props) => {
+const CustomerDetailView = ({ customerId, backUrl = '/agent/customers' }: Props) => {
   const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>(CUSTOMERS)
   const [tab, setTab] = useState<'overview' | 'orders' | 'esims' | 'points' | 'vouchers' | 'notes' | 'activity'>('overview')
@@ -201,7 +201,7 @@ const CustomerDetailView = ({ customerId }: Props) => {
             <Typography variant='body2' color='text.secondary' className='mbe-4'>
               Khách hàng với mã <strong>{customerId}</strong> không tồn tại.
             </Typography>
-            <Button variant='contained' component={Link} href='/agent/customers'>
+            <Button variant='contained' component={Link} href={backUrl}>
               Quay lại danh sách
             </Button>
           </CardContent>
@@ -221,11 +221,11 @@ const CustomerDetailView = ({ customerId }: Props) => {
       {/* Breadcrumb + back */}
       <Box className='flex items-center justify-between mbe-4 flex-wrap gap-2'>
         <Box className='flex items-center gap-2'>
-          <IconButton size='small' onClick={() => router.push('/agent/customers')}>
+          <IconButton size='small' onClick={() => router.push(backUrl)}>
             <i className='tabler-arrow-left text-[20px]' />
           </IconButton>
           <Breadcrumbs separator='/' aria-label='breadcrumb'>
-            <Link href='/agent/customers' style={{ color: 'var(--mui-palette-text-secondary)', textDecoration: 'none' }}>
+            <Link href={backUrl} style={{ color: 'var(--mui-palette-text-secondary)', textDecoration: 'none' }}>
               Khách hàng
             </Link>
             <Typography color='text.primary' sx={{ fontWeight: 500 }}>

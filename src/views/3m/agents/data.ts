@@ -10,7 +10,7 @@ export type Agent = {
   phone: string
   email: string
   tier: AgentTier
-  walletBalanceVND: number
+  totalCostVND: number
   totalSalesVND: number
   ordersCount: number
   apiKeyEnabled: boolean
@@ -26,7 +26,7 @@ export const AGENTS: Agent[] = [
     phone: '0901 234 567',
     email: 'an.nguyen@travelconnect.sg',
     tier: 'Platinum',
-    walletBalanceVND: 45_000_000,
+    totalCostVND: 102_800_000,
     totalSalesVND: 128_500_000,
     ordersCount: 412,
     apiKeyEnabled: true,
@@ -40,7 +40,7 @@ export const AGENTS: Agent[] = [
     phone: '0912 345 678',
     email: 'tuan.tran@globalroam.jp',
     tier: 'Gold',
-    walletBalanceVND: 18_400_000,
+    totalCostVND: 69_360_000,
     totalSalesVND: 84_200_000,
     ordersCount: 295,
     apiKeyEnabled: true,
@@ -54,7 +54,7 @@ export const AGENTS: Agent[] = [
     phone: '0987 654 321',
     email: 'quynh.phan@eurosim.vn',
     tier: 'Platinum',
-    walletBalanceVND: 72_900_000,
+    totalCostVND: 172_850_000,
     totalSalesVND: 210_800_000,
     ordersCount: 684,
     apiKeyEnabled: true,
@@ -68,7 +68,7 @@ export const AGENTS: Agent[] = [
     phone: '0933 444 555',
     email: 'long.le@indoconnect.com',
     tier: 'Silver',
-    walletBalanceVND: 5_200_000,
+    totalCostVND: 19_600_000,
     totalSalesVND: 24_500_000,
     ordersCount: 88,
     apiKeyEnabled: false,
@@ -82,11 +82,11 @@ export const AGENTS: Agent[] = [
     phone: '0977 888 999',
     email: 'duc.hoang@vietsimgo.vn',
     tier: 'Silver',
-    walletBalanceVND: -1_500_000, // Negative balance (credit allowed)
+    totalCostVND: 10_500_000,
     totalSalesVND: 12_800_000,
     ordersCount: 45,
     apiKeyEnabled: false,
-    status: 'blocked', // Blocked agent
+    status: 'blocked',
     joinedAt: '2025-10-18'
   }
 ]

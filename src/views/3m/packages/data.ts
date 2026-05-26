@@ -3,6 +3,8 @@ export type PackageSourceCost = {
   costUSD: number
   qualityRating: number
   status: 'available' | 'out_of_stock' | 'paused'
+  successRate: number // e.g. 99.8
+  latencyMs: number // e.g. 340
 }
 
 export type AdminPackage = {
@@ -17,6 +19,8 @@ export type AdminPackage = {
   sources: PackageSourceCost[]
   suggestedRetailPriceVND: number
   active: boolean
+  isFeatured: boolean
+  packageType: 'Total' | 'Dailys' // Total quota or daily quota
 }
 
 export const ADMIN_PACKAGES: AdminPackage[] = [
@@ -30,12 +34,14 @@ export const ADMIN_PACKAGES: AdminPackage[] = [
     durationDays: 7,
     simType: 'esim',
     sources: [
-      { supplier: 'eSIM Access', costUSD: 4.2, qualityRating: 4.8, status: 'available' },
-      { supplier: 'Airalo Wholesale', costUSD: 4.95, qualityRating: 4.9, status: 'available' },
-      { supplier: 'BNESIM', costUSD: 5.5, qualityRating: 4.4, status: 'out_of_stock' }
+      { supplier: 'eSIM Access', costUSD: 4.2, qualityRating: 4.8, status: 'available', successRate: 99.8, latencyMs: 280 },
+      { supplier: 'Airalo Wholesale', costUSD: 4.95, qualityRating: 4.9, status: 'available', successRate: 99.9, latencyMs: 310 },
+      { supplier: 'BNESIM', costUSD: 5.5, qualityRating: 4.4, status: 'out_of_stock', successRate: 95.5, latencyMs: 450 }
     ],
     suggestedRetailPriceVND: 149_000,
-    active: true
+    active: true,
+    isFeatured: true,
+    packageType: 'Total'
   },
   {
     id: 'PKG-002',
@@ -47,12 +53,14 @@ export const ADMIN_PACKAGES: AdminPackage[] = [
     durationDays: 15,
     simType: 'esim',
     sources: [
-      { supplier: 'GoMoWorld', costUSD: 7.2, qualityRating: 4.6, status: 'available' },
-      { supplier: 'eSIM Access', costUSD: 7.8, qualityRating: 4.8, status: 'available' },
-      { supplier: 'Airalo Wholesale', costUSD: 8.5, qualityRating: 4.9, status: 'available' }
+      { supplier: 'GoMoWorld', costUSD: 7.2, qualityRating: 4.6, status: 'available', successRate: 98.7, latencyMs: 350 },
+      { supplier: 'eSIM Access', costUSD: 7.8, qualityRating: 4.8, status: 'available', successRate: 99.5, latencyMs: 290 },
+      { supplier: 'Airalo Wholesale', costUSD: 8.5, qualityRating: 4.9, status: 'available', successRate: 99.9, latencyMs: 320 }
     ],
     suggestedRetailPriceVND: 245_000,
-    active: true
+    active: true,
+    isFeatured: false,
+    packageType: 'Total'
   },
   {
     id: 'PKG-003',
@@ -64,11 +72,13 @@ export const ADMIN_PACKAGES: AdminPackage[] = [
     durationDays: 30,
     simType: 'esim',
     sources: [
-      { supplier: 'Airalo Wholesale', costUSD: 11.9, qualityRating: 4.9, status: 'available' },
-      { supplier: 'eSIM Access', costUSD: 12.4, qualityRating: 4.8, status: 'available' }
+      { supplier: 'Airalo Wholesale', costUSD: 11.9, qualityRating: 4.9, status: 'available', successRate: 99.9, latencyMs: 250 },
+      { supplier: 'eSIM Access', costUSD: 12.4, qualityRating: 4.8, status: 'available', successRate: 99.6, latencyMs: 275 }
     ],
     suggestedRetailPriceVND: 399_000,
-    active: true
+    active: true,
+    isFeatured: true,
+    packageType: 'Dailys'
   },
   {
     id: 'PKG-004',
@@ -80,11 +90,13 @@ export const ADMIN_PACKAGES: AdminPackage[] = [
     durationDays: 30,
     simType: 'physical',
     sources: [
-      { supplier: 'eSIM Access', costUSD: 18.5, qualityRating: 4.7, status: 'available' },
-      { supplier: 'BNESIM', costUSD: 17.2, qualityRating: 4.3, status: 'paused' }
+      { supplier: 'eSIM Access', costUSD: 18.5, qualityRating: 4.7, status: 'available', successRate: 99.2, latencyMs: 410 },
+      { supplier: 'BNESIM', costUSD: 17.2, qualityRating: 4.3, status: 'paused', successRate: 92.0, latencyMs: 520 }
     ],
     suggestedRetailPriceVND: 599_000,
-    active: true
+    active: true,
+    isFeatured: false,
+    packageType: 'Total'
   },
   {
     id: 'PKG-005',
@@ -96,12 +108,14 @@ export const ADMIN_PACKAGES: AdminPackage[] = [
     durationDays: 7,
     simType: 'esim',
     sources: [
-      { supplier: 'GoMoWorld', costUSD: 3.5, qualityRating: 4.6, status: 'available' },
-      { supplier: 'Airalo Wholesale', costUSD: 3.9, qualityRating: 4.9, status: 'available' },
-      { supplier: 'eSIM Access', costUSD: 4.1, qualityRating: 4.8, status: 'available' }
+      { supplier: 'GoMoWorld', costUSD: 3.5, qualityRating: 4.6, status: 'available', successRate: 99.1, latencyMs: 310 },
+      { supplier: 'Airalo Wholesale', costUSD: 3.9, qualityRating: 4.9, status: 'available', successRate: 99.8, latencyMs: 290 },
+      { supplier: 'eSIM Access', costUSD: 4.1, qualityRating: 4.8, status: 'available', successRate: 99.4, latencyMs: 330 }
     ],
     suggestedRetailPriceVND: 119_000,
-    active: true
+    active: true,
+    isFeatured: false,
+    packageType: 'Dailys'
   },
   {
     id: 'PKG-006',
@@ -113,11 +127,13 @@ export const ADMIN_PACKAGES: AdminPackage[] = [
     durationDays: 30,
     simType: 'esim',
     sources: [
-      { supplier: 'BNESIM', costUSD: 32.5, qualityRating: 4.4, status: 'out_of_stock' },
-      { supplier: 'Airalo Wholesale', costUSD: 35.0, qualityRating: 4.9, status: 'available' }
+      { supplier: 'BNESIM', costUSD: 32.5, qualityRating: 4.4, status: 'out_of_stock', successRate: 93.4, latencyMs: 480 },
+      { supplier: 'Airalo Wholesale', costUSD: 35.0, qualityRating: 4.9, status: 'available', successRate: 99.9, latencyMs: 340 }
     ],
     suggestedRetailPriceVND: 999_000,
-    active: true
+    active: true,
+    isFeatured: true,
+    packageType: 'Total'
   }
 ]
 

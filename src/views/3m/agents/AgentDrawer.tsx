@@ -35,7 +35,7 @@ const emptyAgent = (): Agent => ({
   phone: '',
   email: '',
   tier: 'Silver',
-  walletBalanceVND: 0,
+  totalCostVND: 0,
   totalSalesVND: 0,
   ordersCount: 0,
   apiKeyEnabled: false,
@@ -122,17 +122,21 @@ const AgentDrawer = ({ open, mode, agent, onClose, onSave, onSwitchMode }: Props
 
             {/* Financial Metrics */}
             <Box>
-              <Typography variant='h6' className='font-bold mbe-3'>Chỉ số tài chính</Typography>
+              <Typography variant='h6' className='font-bold mbe-3'>Chỉ số kinh doanh</Typography>
               <Stack spacing={3}>
-                <Box className='flex justify-between items-center'>
-                  <Typography color='text.secondary' variant='body2'>Ví ký quỹ hiện tại:</Typography>
-                  <Typography sx={{ fontWeight: 700 }} variant='body1' color={form.walletBalanceVND >= 0 ? 'success.main' : 'error.main'}>
-                    {form.walletBalanceVND.toLocaleString('vi-VN')}đ
-                  </Typography>
+                <Box className='flex justify-between'>
+                  <Typography color='text.secondary' variant='body2'>Tổng giá vốn:</Typography>
+                  <Typography sx={{ fontWeight: 600 }} variant='body2'>{form.totalCostVND.toLocaleString('vi-VN')}đ</Typography>
                 </Box>
                 <Box className='flex justify-between'>
-                  <Typography color='text.secondary' variant='body2'>Tổng doanh số bán lẻ:</Typography>
+                  <Typography color='text.secondary' variant='body2'>Tổng doanh thu:</Typography>
                   <Typography sx={{ fontWeight: 600 }} variant='body2'>{form.totalSalesVND.toLocaleString('vi-VN')}đ</Typography>
+                </Box>
+                <Box className='flex justify-between items-center'>
+                  <Typography color='text.secondary' variant='body2'>Lợi nhuận gộp:</Typography>
+                  <Typography sx={{ fontWeight: 700 }} variant='body1' color='success.main'>
+                    {(form.totalSalesVND - form.totalCostVND).toLocaleString('vi-VN')}đ
+                  </Typography>
                 </Box>
                 <Box className='flex justify-between'>
                   <Typography color='text.secondary' variant='body2'>Tổng số đơn hàng:</Typography>

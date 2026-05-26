@@ -28,59 +28,151 @@ import {
   type AdminPackage
 } from './data'
 
-const KPI_CONFIG = [
-  { key: 'total', label: 'Gói cước tập trung', icon: 'tabler-packages', color: 'primary' as const },
-  { key: 'suppliers', label: 'Nhà cung cấp API', icon: 'tabler-api', color: 'success' as const },
-  { key: 'active', label: 'Gói đang hoạt động', icon: 'tabler-activity', color: 'info' as const },
-  { key: 'optimal', label: 'Nguồn giá rẻ nhất (%)', icon: 'tabler-discount-2', color: 'warning' as const }
-]
+import {
+  AGENTS,
+  tierColor,
+  statusColor as agentStatusColor,
+  statusLabel as agentStatusLabel,
+  type Agent
+} from '../agents/data'
+
+const getDiscountPct = (tier: string) => {
+  if (tier === 'Platinum') return 15
+  if (tier === 'Gold') return 10
+  if (tier === 'Silver') return 5
+  return 0
+}
 
 const PackagesView = () => {
   const [packages] = useState<AdminPackage[]>(ADMIN_PACKAGES)
+
+  // 1. Agent select filter
+  const [selectedAgentId, setSelectedAgentId] = useState<string>(AGENTS[0].id)
+
+  // 2. Granular filters
   const [search, setSearch] = useState('')
   const [region, setRegion] = useState('all')
+  const [country, setCountry] = useState('all')
   const [simType, setSimType] = useState('all')
+  const [packageType, setPackageType] = useState('all')
+  const [dataLimit, setDataLimit] = useState('all')
+  const [durationDays, setDurationDays] = useState('all')
 
-  // List of unique regions
+  const [status, setStatus] = useState('all')
+
+  // Selected agent details
+  const currentAgent = useMemo(() => {
+    return AGENTS.find(a => a.id === selectedAgentId) || AGENTS[0]
+  }, [selectedAgentId])
+
+  // Unique list extractions for filter dropdowns
   const regionList = useMemo(() => Array.from(new Set(packages.map(p => p.region))), [packages])
+  const countryList = useMemo(() => Array.from(new Set(packages.map(p => p.country))), [packages])
+  const dataLimitList = useMemo(() => {
+    const limits = packages.map(p => p.dataGB.toString())
+    return Array.from(new Set(limits))
+  }, [packages])
+  const durationList = useMemo(() => {
+    const durations = packages.map(p => p.durationDays.toString())
+    return Array.from(new Set(durations))
+  }, [packages])
 
+  // Calculate stats dynamically based on selection
+  const discountPct = useMemo(() => getDiscountPct(currentAgent.tier), [currentAgent])
+
+  // Filtered packages
   const filtered = useMemo(() => {
     return packages.filter(p => {
+      // Search
       const q = search.toLowerCase()
       const matchSearch =
         !q ||
+        p.id.toLowerCase().includes(q) ||
         p.name.toLowerCase().includes(q) ||
-        p.country.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q)
+        p.country.toLowerCase().includes(q)
+
+      // Dropdown filters
+      const matchRegion = region === 'all' || p.region === region
+      const matchCountry = country === 'all' || p.country === country
+      const matchSimType = simType === 'all' || p.simType === simType
+      
+      const matchPkgType = packageType === 'all' || p.packageType === packageType
+
+      const isPkgUnlimited = p.dataGB === 'unlimited'
+      const matchData =
+        dataLimit === 'all' ||
+        (dataLimit === 'unlimited' && isPkgUnlimited) ||
+        (dataLimit !== 'unlimited' && p.dataGB.toString() === dataLimit)
+
+      const matchDuration = durationDays === 'all' || p.durationDays.toString() === durationDays
+
+      const matchStatus =
+        status === 'all' ||
+        (status === 'active' && p.active) ||
+        (status === 'inactive' && !p.active)
+
+      // Calculate prices for numeric filters
+      const cheapest = getCheapestSource(p)
+      const costVnd = cheapest ? Math.round(cheapest.costUSD * USD_VND) : 0
+      const agentPriceVND = Math.round(p.suggestedRetailPriceVND * (1 - discountPct / 100))
+      const agentProfitVND = p.suggestedRetailPriceVND - agentPriceVND
+
       return (
         matchSearch &&
-        (region === 'all' || p.region === region) &&
-        (simType === 'all' || p.simType === simType)
+        matchRegion &&
+        matchCountry &&
+        matchSimType &&
+        matchPkgType &&
+        matchData &&
+        matchDuration &&
+        matchStatus
       )
     })
-  }, [packages, search, region, simType])
+  }, [
+    packages,
+    search,
+    region,
+    country,
+    simType,
+    packageType,
+    dataLimit,
+    durationDays,
+    status,
+    discountPct
+  ])
 
-  const kpis = useMemo(() => {
-    // Unique list of suppliers
-    const suppliersSet = new Set<string>()
-    packages.forEach(p => p.sources.forEach(s => suppliersSet.add(s.supplier)))
-
-    return {
-      total: packages.length,
-      suppliers: suppliersSet.size,
-      active: packages.filter(p => p.active).length,
-      optimal: '100%'
-    }
-  }, [packages])
-
-  const formatKpiValue = (key: string, val: any) => val
-
-  const activeFilterCount = [region, simType].filter(v => v !== 'all').length
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (search) count++
+    if (region !== 'all') count++
+    if (country !== 'all') count++
+    if (simType !== 'all') count++
+    if (packageType !== 'all') count++
+    if (dataLimit !== 'all') count++
+    if (durationDays !== 'all') count++
+    if (status !== 'all') count++
+    return count
+  }, [
+    search,
+    region,
+    country,
+    simType,
+    packageType,
+    dataLimit,
+    durationDays,
+    status
+  ])
 
   const resetFilters = () => {
     setSearch('')
     setRegion('all')
+    setCountry('all')
     setSimType('all')
+    setPackageType('all')
+    setDataLimit('all')
+    setDurationDays('all')
+    setStatus('all')
   }
 
   return (
@@ -89,80 +181,93 @@ const PackagesView = () => {
       <Box className='flex items-start justify-between mbe-6 gap-4 flex-wrap'>
         <Box>
           <Typography variant='h4' className='font-bold mbe-1'>
-            Bảng giá gói cước hệ thống
+            Biểu phí đại lý toàn sàn
           </Typography>
           <Typography variant='body2' color='text.secondary'>
-            Xem giá cost, các nguồn cung cấp API eSIM toàn cầu và so sánh tìm giá rẻ nhất.
+            Xem và lọc bảng giá cước eSIM / SIM vật lý chi tiết tương ứng với từng cấp bậc đại lý (Platinum/Gold/Silver).
           </Typography>
         </Box>
         <Stack direction='row' spacing={2}>
           <Button variant='tonal' color='secondary' startIcon={<i className='tabler-download' />}>
-            Xuất biểu phí
+            Xuất Excel biểu giá đại lý
           </Button>
         </Stack>
       </Box>
 
-      {/* View Only Alert */}
-      <Alert severity='warning' icon={<i className='tabler-info-circle text-[22px]' />} className='mbe-6'>
-        Giao diện tra cứu bảng giá cước tập trung của sàn — <strong>Chế độ Chỉ xem (View Only)</strong>. Chỉ có Agent mới có quyền CRUD cấu hình định giá bán của riêng họ.
-      </Alert>
-
-      {/* KPI row */}
-      <Grid2 container spacing={4} className='mbe-6'>
-        {KPI_CONFIG.map(kpi => (
-          <Grid2 key={kpi.key} size={{ xs: 6, md: 3 }}>
-            <Card variant='outlined'>
-              <CardContent>
-                <Box className='flex items-center justify-between'>
-                  <Box>
-                    <Typography variant='caption' color='text.secondary'>
-                      {kpi.label}
-                    </Typography>
-                    <Typography variant='h4' className='font-bold'>
-                      {formatKpiValue(kpi.key, kpis[kpi.key as keyof typeof kpis])}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 1.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: `rgba(var(--mui-palette-${kpi.color}-mainChannel) / 0.10)`,
-                      color: `var(--mui-palette-${kpi.color}-main)`
-                    }}
-                  >
-                    <i className={`${kpi.icon} text-[22px]`} />
-                  </Box>
+      {/* AGENT AUDIT PANEL */}
+      <Card variant='outlined' sx={{ mbe: 6, borderColor: 'primary.main', borderWidth: 1.5 }}>
+        <CardContent sx={{ p: '20px !important' }}>
+          <Grid2 container spacing={4} alignItems='center'>
+            <Grid2 size={{ xs: 12, md: 5 }}>
+              <Typography variant='subtitle2' className='font-bold mbe-2 flex items-center gap-1.5' color='primary.main'>
+                <i className='tabler-user-cog text-[18px]' /> 1. Chọn Đại lý để xem Biểu giá
+              </Typography>
+              <TextField
+                select
+                fullWidth
+                size='small'
+                label='Đại lý phân phối'
+                value={selectedAgentId}
+                onChange={e => setSelectedAgentId(e.target.value)}
+              >
+                {AGENTS.map(a => (
+                  <MenuItem key={a.id} value={a.id}>
+                    {a.name} ({a.tier} Tier)
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid2>
+            <Grid2 size={{ xs: 12, md: 7 }}>
+              <Box
+                sx={{
+                  p: 3,
+                  borderRadius: 1,
+                  backgroundColor: 'action.hover',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <Box>
+                  <Typography variant='caption' color='text.secondary' sx={{ display: 'block' }}>Hạng đại lý</Typography>
+                  <Chip
+                    size='small'
+                    color={tierColor[currentAgent.tier]}
+                    label={currentAgent.tier}
+                    variant='tonal'
+                    sx={{ fontWeight: 600, mt: 0.5 }}
+                  />
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid2>
-        ))}
-      </Grid2>
 
-      {/* Filter and Table Container */}
-      <Card variant='outlined'>
-        <Box className='p-4' sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box className='flex items-center gap-3 mbe-3 flex-wrap'>
-            <TextField
-              size='small'
-              placeholder='Tìm theo gói cước, quốc gia, ID...'
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              sx={{ flex: 1, minWidth: 280, maxWidth: 420 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position='start'>
-                    <i className='tabler-search text-[18px]' />
-                  </InputAdornment>
-                )
-              }}
-            />
-            <Box className='flex-grow' />
-            {(activeFilterCount > 0 || search) && (
+                <Box>
+                  <Typography variant='caption' color='text.secondary' sx={{ display: 'block' }}>Trạng thái tài khoản</Typography>
+                  <Chip
+                    size='small'
+                    color={agentStatusColor[currentAgent.status]}
+                    label={agentStatusLabel[currentAgent.status]}
+                    variant='tonal'
+                    sx={{ fontWeight: 600, mt: 0.5 }}
+                  />
+                </Box>
+                <Box>
+                  <Typography variant='caption' color='text.secondary' sx={{ display: 'block' }}>Người đại diện</Typography>
+                  <Typography variant='body2' sx={{ fontWeight: 600, mt: 0.5 }}>{currentAgent.owner}</Typography>
+                </Box>
+              </Box>
+            </Grid2>
+          </Grid2>
+        </CardContent>
+      </Card>
+
+      {/* ADVANCED FILTER MATRIX PANEL */}
+      <Card variant='outlined' sx={{ mbe: 6 }}>
+        <Box className='p-4' sx={{ borderBottom: '1px solid', borderColor: 'divider', backgroundColor: 'action.hover' }}>
+          <Box className='flex items-center justify-between'>
+            <Typography variant='subtitle2' className='font-bold flex items-center gap-1.5'>
+              <i className='tabler-adjustments-horizontal text-[20px] text-primary' /> 2. Bộ lọc biểu giá chi tiết
+            </Typography>
+            {activeFilterCount > 0 && (
               <Button
                 size='small'
                 variant='text'
@@ -170,59 +275,192 @@ const PackagesView = () => {
                 onClick={resetFilters}
                 startIcon={<i className='tabler-x text-[16px]' />}
               >
-                Xoá lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                Xóa tất cả ({activeFilterCount})
               </Button>
             )}
-            <Typography variant='caption' color='text.secondary'>
-              Hiển thị <strong>{filtered.length}</strong> / {packages.length} gói cước
-            </Typography>
-          </Box>
-
-          <Box className='grid gap-3' sx={{ gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' } }}>
-            <TextField size='small' select label='Khu vực / Vùng' value={region} onChange={e => setRegion(e.target.value)}>
-              <MenuItem value='all'>Tất cả khu vực</MenuItem>
-              {regionList.map(r => (
-                <MenuItem key={r} value={r}>{r}</MenuItem>
-              ))}
-            </TextField>
-            <TextField size='small' select label='Loại SIM' value={simType} onChange={e => setSimType(e.target.value)}>
-              <MenuItem value='all'>Tất cả loại</MenuItem>
-              <MenuItem value='esim'>eSIM</MenuItem>
-              <MenuItem value='physical'>SIM vật lý</MenuItem>
-            </TextField>
           </Box>
         </Box>
+        <CardContent sx={{ p: 4 }}>
+          <Grid2 container spacing={3}>
+            {/* Search */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField
+                fullWidth
+                size='small'
+                label='Từ khóa tìm kiếm'
+                placeholder='Nhập mã gói, tên sản phẩm...'
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <i className='tabler-search text-[16px]' />
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Grid2>
 
+            {/* Region */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField select fullWidth size='small' label='Vùng / Châu lục' value={region} onChange={e => setRegion(e.target.value)}>
+                <MenuItem value='all'>Tất cả vùng</MenuItem>
+                {regionList.map(r => (
+                  <MenuItem key={r} value={r}>{r}</MenuItem>
+                ))}
+              </TextField>
+            </Grid2>
+
+            {/* Country */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField select fullWidth size='small' label='Quốc gia' value={country} onChange={e => setCountry(e.target.value)}>
+                <MenuItem value='all'>Tất cả quốc gia</MenuItem>
+                {countryList.map(c => (
+                  <MenuItem key={c} value={c}>{c}</MenuItem>
+                ))}
+              </TextField>
+            </Grid2>
+
+            {/* SIM Type */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField select fullWidth size='small' label='Loại SIM' value={simType} onChange={e => setSimType(e.target.value)}>
+                <MenuItem value='all'>Tất cả loại SIM</MenuItem>
+                <MenuItem value='esim'>eSIM</MenuItem>
+                <MenuItem value='physical'>SIM vật lý</MenuItem>
+              </TextField>
+            </Grid2>
+
+            {/* Package Type */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField select fullWidth size='small' label='Loại gói' value={packageType} onChange={e => setPackageType(e.target.value)}>
+                <MenuItem value='all'>Tất cả loại gói</MenuItem>
+                <MenuItem value='Total'>Total</MenuItem>
+                <MenuItem value='Dailys'>Dailys</MenuItem>
+              </TextField>
+            </Grid2>
+
+            {/* Data Limit */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField select fullWidth size='small' label='Dung lượng' value={dataLimit} onChange={e => setDataLimit(e.target.value)}>
+                <MenuItem value='all'>Tất cả dung lượng</MenuItem>
+                {dataLimitList.map(d => (
+                  <MenuItem key={d} value={d}>
+                    {d === 'unlimited' ? 'Không giới hạn' : `${d} GB`}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid2>
+
+            {/* Duration */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField select fullWidth size='small' label='Số ngày' value={durationDays} onChange={e => setDurationDays(e.target.value)}>
+                <MenuItem value='all'>Tất cả số ngày</MenuItem>
+                {durationList.map(d => (
+                  <MenuItem key={d} value={d}>{d} ngày</MenuItem>
+                ))}
+              </TextField>
+            </Grid2>
+
+
+
+            {/* Status */}
+            <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <TextField select fullWidth size='small' label='Trạng thái gói' value={status} onChange={e => setStatus(e.target.value)}>
+                <MenuItem value='all'>Tất cả trạng thái</MenuItem>
+                <MenuItem value='active'>Hoạt động</MenuItem>
+                <MenuItem value='inactive'>Tạm ngưng</MenuItem>
+              </TextField>
+            </Grid2>
+          </Grid2>
+        </CardContent>
+      </Card>
+
+      {/* RESULTS COUNT & TABLE */}
+      <Card variant='outlined'>
+        <Box className='p-4 flex items-center justify-between' sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant='subtitle2' className='font-bold' color='text.secondary'>
+            Biểu phí thực hiển thị cho đại lý: <strong>{currentAgent.name}</strong>
+          </Typography>
+          <Typography variant='caption' color='text.secondary'>
+            Tìm thấy <strong>{filtered.length}</strong> kết quả khớp bộ lọc
+          </Typography>
+        </Box>
+        
         <TableContainer>
           <Table size='medium'>
             <TableHead>
               <TableRow>
-                <TableCell>Gói cước</TableCell>
-                <TableCell>Khu vực / Quốc gia</TableCell>
-                <TableCell>Nguồn rẻ nhất (Cost)</TableCell>
-                <TableCell align='right'>Giá vốn quy đổi (VND)</TableCell>
-                <TableCell align='right'>Giá bán lẻ đề xuất</TableCell>
-                <TableCell>Các nguồn cấp tích hợp khác</TableCell>
-                <TableCell>Trạng thái</TableCell>
+                <TableCell>Gói eSIM</TableCell>
+                <TableCell>Loại SIM</TableCell>
+                <TableCell>Quốc gia</TableCell>
+                <TableCell>Loại gói</TableCell>
+                <TableCell>Dung lượng</TableCell>
+                <TableCell>Số ngày</TableCell>
+                <TableCell align='right'>Giá mua</TableCell>
+                <TableCell align='right'>Giá bán</TableCell>
+                <TableCell align='right'>Lãi đại lý (VND)</TableCell>
+                <TableCell>Trạng thái sàn</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filtered.map(p => {
                 const cheapest = getCheapestSource(p)
                 const costVnd = cheapest ? Math.round(cheapest.costUSD * USD_VND) : 0
+                const agentPriceVND = Math.round(p.suggestedRetailPriceVND * (1 - discountPct / 100))
+                const agentProfitVND = p.suggestedRetailPriceVND - agentPriceVND
+                
                 return (
                   <TableRow key={p.id} hover>
+                    {/* 1. Gói eSIM */}
                     <TableCell>
                       <Box className='flex items-center gap-3'>
-                        <Typography variant='h5'>{p.flag}</Typography>
+                        <Box
+                          sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 20,
+                            backgroundColor: 'action.hover',
+                            boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)'
+                          }}
+                        >
+                          {p.flag}
+                        </Box>
                         <Box>
-                          <Typography sx={{ fontWeight: 600 }}>{p.name}</Typography>
+                          <Stack direction='row' spacing={1} alignItems='center'>
+                            <Typography sx={{ fontWeight: 600 }}>{p.name}</Typography>
+                            {p.isFeatured && (
+                              <Chip
+                                size='small'
+                                color='error'
+                                variant='tonal'
+                                label='Hot'
+                                sx={{ height: 16, fontSize: '9px', fontWeight: 700 }}
+                              />
+                            )}
+                          </Stack>
                           <Typography variant='caption' color='text.secondary'>
-                            {p.id} · {p.simType === 'esim' ? 'eSIM' : 'SIM vật lý'} · {p.dataGB === 'unlimited' ? 'Không giới hạn' : `${p.dataGB}GB`} · {p.durationDays} ngày
+                            {p.id}
                           </Typography>
                         </Box>
                       </Box>
                     </TableCell>
+
+                    {/* 2. Loại SIM */}
+                    <TableCell>
+                      <Chip
+                        size='small'
+                        variant='tonal'
+                        color={p.simType === 'esim' ? 'primary' : 'info'}
+                        label={p.simType === 'esim' ? 'eSIM' : 'SIM vật lý'}
+                        sx={{ fontWeight: 600, textTransform: 'uppercase' }}
+                      />
+                    </TableCell>
+
+                    {/* 3. Quốc gia */}
                     <TableCell>
                       <Typography variant='body2' sx={{ fontWeight: 500 }}>
                         {p.country}
@@ -231,57 +469,63 @@ const PackagesView = () => {
                         Vùng: {p.region}
                       </Typography>
                     </TableCell>
+
+                    {/* 4. Loại gói */}
                     <TableCell>
-                      {cheapest ? (
-                        <>
-                          <Typography variant='body2' color='success.main' sx={{ fontWeight: 600 }}>
-                            {cheapest.supplier}
-                          </Typography>
-                          <Typography variant='caption' color='success.main'>
-                            ${cheapest.costUSD.toFixed(2)} (Đánh giá: {cheapest.qualityRating}★)
-                          </Typography>
-                        </>
-                      ) : (
-                        <Typography color='text.disabled' variant='caption'>Hết nguồn cấp</Typography>
-                      )}
+                      <Chip
+                        size='small'
+                        variant='tonal'
+                        color={p.packageType === 'Total' ? 'primary' : 'warning'}
+                        label={p.packageType}
+                        sx={{ fontWeight: 600 }}
+                      />
                     </TableCell>
+
+                    {/* 5. Dung lượng */}
+                    <TableCell>
+                      <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                        {p.dataGB === 'unlimited' ? 'Không giới hạn' : `${p.dataGB} GB`}
+                      </Typography>
+                    </TableCell>
+
+                    {/* 6. Số ngày */}
+                    <TableCell>
+                      <Typography variant='body2'>{p.durationDays} ngày</Typography>
+                    </TableCell>
+
+                    {/* 7. Giá mua */}
                     <TableCell align='right'>
-                      {costVnd > 0 ? (
-                        <Typography sx={{ fontWeight: 600 }}>
-                          {costVnd.toLocaleString('vi-VN')}đ
-                        </Typography>
-                      ) : (
-                        <Typography variant='caption' color='text.disabled'>--</Typography>
-                      )}
+                      <Typography sx={{ fontWeight: 700 }} color='primary.main'>
+                        {agentPriceVND.toLocaleString('vi-VN')}đ
+                      </Typography>
                     </TableCell>
+
+                    {/* 8. Giá bán */}
                     <TableCell align='right'>
                       <Typography sx={{ fontWeight: 600 }}>
                         {p.suggestedRetailPriceVND.toLocaleString('vi-VN')}đ
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Stack spacing={1}>
-                        {p.sources.map((s, idx) => (
-                          <Box key={idx} className='flex items-center gap-2'>
-                            <Typography variant='caption' sx={{ fontWeight: s.supplier === cheapest?.supplier ? 600 : 400 }}>
-                              {s.supplier}: ${s.costUSD.toFixed(2)}
-                            </Typography>
-                            {s.status === 'out_of_stock' && (
-                              <Chip size='small' variant='tonal' color='error' label='OOS' sx={{ fontSize: '9px', height: '16px' }} />
-                            )}
-                            {s.status === 'paused' && (
-                              <Chip size='small' variant='tonal' color='warning' label='Paused' sx={{ fontSize: '9px', height: '16px' }} />
-                            )}
-                          </Box>
-                        ))}
-                      </Stack>
+
+                    {/* 9. Lãi đại lý */}
+                    <TableCell align='right'>
+                      <Box>
+                        <Typography sx={{ fontWeight: 700 }} color='success.main'>
+                          +{agentProfitVND.toLocaleString('vi-VN')}đ
+                        </Typography>
+                        <Typography variant='caption' color='success.main' sx={{ fontWeight: 600 }}>
+                          ({discountPct}%)
+                        </Typography>
+                      </Box>
                     </TableCell>
+
+                    {/* 10. Trạng thái sàn */}
                     <TableCell>
                       <Chip
                         size='small'
                         variant='tonal'
                         color={p.active ? 'success' : 'secondary'}
-                        label={p.active ? 'Đang hoạt động' : 'Tạm ngưng'}
+                        label={p.active ? 'Hoạt động' : 'Tạm ngưng'}
                         sx={{ fontWeight: 600 }}
                       />
                     </TableCell>
@@ -290,7 +534,7 @@ const PackagesView = () => {
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align='center' sx={{ py: 6 }}>
+                  <TableCell colSpan={10} align='center' sx={{ py: 6 }}>
                     <Typography color='text.secondary'>Không có gói cước nào khớp bộ lọc.</Typography>
                   </TableCell>
                 </TableRow>

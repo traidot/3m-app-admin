@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -23,8 +24,6 @@ import Avatar from '@mui/material/Avatar'
 import Stack from '@mui/material/Stack'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
-
-import AppConfirmDialog from '@/components/common/AppConfirmDialog'
 import {
   CUSTOMERS,
   typeColor,
@@ -43,14 +42,12 @@ const KPI_CONFIG = [
 ]
 
 const CustomersView = () => {
+  const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>(CUSTOMERS)
   const [search, setSearch] = useState('')
   const [agent, setAgent] = useState('all')
   const [type, setType] = useState('all')
   const [status, setStatus] = useState('all')
-  
-  // Lock target state
-  const [lockTarget, setLockTarget] = useState<Customer | null>(null)
   
   // Toast notifications
   const [toast, setToast] = useState<string | null>(null)
@@ -59,19 +56,6 @@ const CustomersView = () => {
   const agentList = useMemo(() => {
     return Array.from(new Set(customers.map(c => c.agentName)))
   }, [customers])
-
-  const handleToggleLock = () => {
-    if (!lockTarget) return
-    setCustomers(prev =>
-      prev.map(c =>
-        c.id === lockTarget.id
-          ? { ...c, status: c.status === 'blocked' ? 'active' : 'blocked' }
-          : c
-      )
-    )
-    setToast(lockTarget.status === 'blocked' ? 'Đã kích hoạt hoạt động tài khoản khách hàng' : 'Đã khóa tài khoản khách hàng')
-    setLockTarget(null)
-  }
 
   const filtered = useMemo(() => {
     return customers.filter(c => {
@@ -257,7 +241,11 @@ const CustomersView = () => {
               {filtered.map(c => (
                 <TableRow key={c.id} hover>
                   <TableCell>
-                    <Box className='flex items-center gap-3'>
+                    <Box
+                      className='flex items-center gap-3 cursor-pointer'
+                      onClick={() => router.push(`/3m/customers/${c.id}`)}
+                      sx={{ '&:hover': { '& .cus-name': { color: 'primary.main' } } }}
+                    >
                       <Avatar
                         sx={{
                           width: 40,
@@ -271,7 +259,9 @@ const CustomersView = () => {
                         {initials(c.name)}
                       </Avatar>
                       <Box>
-                        <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
+                        <Typography className='cus-name' sx={{ fontWeight: 600, transition: 'color 0.15s ease' }}>
+                          {c.name}
+                        </Typography>
                         <Typography variant='caption' color='text.secondary'>
                           {c.id} · Tham gia {c.joinedAt}
                         </Typography>
@@ -330,9 +320,9 @@ const CustomersView = () => {
                   </TableCell>
                   <TableCell align='right'>
                     <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
-                      <Tooltip title={c.status === 'blocked' ? 'Mở khóa tài khoản' : 'Khóa tài khoản khách hàng'}>
-                        <IconButton size='small' onClick={() => setLockTarget(c)}>
-                          <i className={`${c.status === 'blocked' ? 'tabler-lock-open' : 'tabler-lock'} text-[20px]`} />
+                      <Tooltip title='Xem chi tiết'>
+                        <IconButton size='small' onClick={() => router.push(`/3m/customers/${c.id}`)}>
+                          <i className='tabler-eye text-[20px]' />
                         </IconButton>
                       </Tooltip>
                     </Stack>
@@ -351,26 +341,7 @@ const CustomersView = () => {
         </TableContainer>
       </Card>
 
-      <AppConfirmDialog
-        open={!!lockTarget}
-        onClose={() => setLockTarget(null)}
-        onConfirm={handleToggleLock}
-        severity={lockTarget?.status === 'blocked' ? 'primary' : 'warning'}
-        icon={lockTarget?.status === 'blocked' ? 'tabler-lock-open' : 'tabler-lock'}
-        title={lockTarget?.status === 'blocked' ? 'Mở khóa tài khoản khách hàng' : 'Khóa tài khoản khách hàng'}
-        description={
-          lockTarget?.status === 'blocked' ? (
-            <>
-              Bạn chắc chắn muốn mở khóa tài khoản <strong>{lockTarget?.name}</strong>? Khách hàng sẽ có thể đăng nhập vào ứng dụng đại lý và thực hiện giao dịch trở lại bình thường.
-            </>
-          ) : (
-            <>
-              Bạn chắc chắn muốn khóa tài khoản <strong>{lockTarget?.name}</strong>? Khách hàng này sẽ bị ngắt kết nối và không thể thực hiện các giao dịch trên app của đại lý nữa.
-            </>
-          )
-        }
-        confirmLabel={lockTarget?.status === 'blocked' ? 'Mở khóa' : 'Khóa tài khoản'}
-      />
+
 
       <Snackbar
         open={!!toast}

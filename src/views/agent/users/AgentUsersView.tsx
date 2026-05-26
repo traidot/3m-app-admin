@@ -21,6 +21,8 @@ import InputAdornment from '@mui/material/InputAdornment'
 import Tooltip from '@mui/material/Tooltip'
 import Avatar from '@mui/material/Avatar'
 import Stack from '@mui/material/Stack'
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 
 import {
   INTERNAL_USERS,
@@ -70,11 +72,22 @@ const AgentUsersView = () => {
   const [drawerMode, setDrawerMode] = useState<DrawerMode>('view')
   const [activeUser, setActiveUser] = useState<InternalUser | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<InternalUser | null>(null)
+  const [resetTarget, setResetTarget] = useState<InternalUser | null>(null)
+  const [toast, setToast] = useState<{ severity: 'success' | 'info' | 'error'; message: string } | null>(null)
 
   const handleDelete = () => {
     if (!deleteTarget) return
     setUsers(prev => prev.filter(u => u.id !== deleteTarget.id))
     setDeleteTarget(null)
+  }
+
+  const handleResetPassword = () => {
+    if (!resetTarget) return
+    setToast({
+      severity: 'success',
+      message: `Đặt lại mật khẩu thành công cho nhân viên ${resetTarget.name}! Mật khẩu mặc định mới là: AgentStaff@2026`
+    })
+    setResetTarget(null)
   }
 
   const filtered = useMemo(() => {
@@ -322,6 +335,13 @@ const AgentUsersView = () => {
                     </TableCell>
                     <TableCell align='right'>
                       <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
+                        {u.rolePreset !== 'owner' && (
+                          <Tooltip title='Đặt lại mật khẩu'>
+                            <IconButton size='small' color='warning' onClick={() => setResetTarget(u)}>
+                              <i className='tabler-key text-[20px]' />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                         <Tooltip title='Xem chi tiết'>
                           <IconButton size='small' onClick={() => openDrawer(u, 'view')}>
                             <i className='tabler-eye text-[20px]' />
@@ -384,6 +404,32 @@ const AgentUsersView = () => {
         }
         confirmLabel='Xoá tài khoản'
       />
+
+      <AppConfirmDialog
+        open={!!resetTarget}
+        onClose={() => setResetTarget(null)}
+        onConfirm={handleResetPassword}
+        severity='warning'
+        icon='tabler-key'
+        title='Đặt lại mật khẩu'
+        description={
+          <>
+            Bạn có chắc chắn muốn đặt lại mật khẩu cho nhân viên <strong>{resetTarget?.name}</strong> ({resetTarget?.email})? Mật khẩu mới sẽ tự động đặt là <strong>AgentStaff@2026</strong>.
+          </>
+        }
+        confirmLabel='Đặt lại mật khẩu'
+      />
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={5000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert severity={toast?.severity ?? 'success'} variant='filled' onClose={() => setToast(null)} sx={{ width: '100%' }}>
+          {toast?.message ?? ''}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

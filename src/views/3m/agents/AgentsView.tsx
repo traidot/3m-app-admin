@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -37,12 +38,13 @@ import {
 
 const KPI_CONFIG = [
   { key: 'total', label: 'Tổng số đại lý', icon: 'tabler-building-store', color: 'primary' as const },
-  { key: 'wallet', label: 'Tổng tiền ký quỹ (VND)', icon: 'tabler-wallet', color: 'success' as const },
-  { key: 'revenue', label: 'Doanh thu (VND)', icon: 'tabler-cash', color: 'warning' as const },
-  { key: 'orders', label: 'Tổng đơn hàng', icon: 'tabler-shopping-cart', color: 'info' as const }
+  { key: 'cost', label: 'Tổng giá vốn (VND)', icon: 'tabler-credit-card', color: 'error' as const },
+  { key: 'revenue', label: 'Tổng doanh thu (VND)', icon: 'tabler-cash', color: 'warning' as const },
+  { key: 'profit', label: 'Tổng lợi nhuận (VND)', icon: 'tabler-trending-up', color: 'success' as const }
 ]
 
 const AgentsView = () => {
+  const router = useRouter()
   const [agents, setAgents] = useState<Agent[]>(AGENTS)
   const [search, setSearch] = useState('')
   const [tier, setTier] = useState('all')
@@ -111,16 +113,18 @@ const AgentsView = () => {
   }, [agents, search, tier, status])
 
   const kpis = useMemo(() => {
+    const totalCost = agents.reduce((sum, a) => sum + a.totalCostVND, 0)
+    const totalRevenue = agents.reduce((sum, a) => sum + a.totalSalesVND, 0)
     return {
       total: agents.length,
-      wallet: agents.reduce((sum, a) => sum + a.walletBalanceVND, 0),
-      revenue: agents.reduce((sum, a) => sum + a.totalSalesVND, 0),
-      orders: agents.reduce((sum, a) => sum + a.ordersCount, 0)
+      cost: totalCost,
+      revenue: totalRevenue,
+      profit: totalRevenue - totalCost
     }
   }, [agents])
 
   const formatKpiValue = (key: string, val: number) => {
-    if (key === 'revenue' || key === 'wallet') {
+    if (key === 'revenue' || key === 'cost' || key === 'profit') {
       return `${(val / 1_000_000).toFixed(1)}M`
     }
     return val.toLocaleString('vi-VN')
@@ -152,7 +156,7 @@ const AgentsView = () => {
             Quản lý đại lý app
           </Typography>
           <Typography variant='body2' color='text.secondary'>
-            Quản lý cấp bậc, ví tài chính ký quỹ, trạng thái và cổng API Gateway của từng đại lý.
+            Quản lý cấp bậc, trạng thái, và tổng doanh số/lợi nhuận của từng đại lý app.
           </Typography>
         </Box>
         <Stack direction='row' spacing={2}>
@@ -262,10 +266,11 @@ const AgentsView = () => {
                 <TableCell>Đại lý</TableCell>
                 <TableCell>Chủ sở hữu</TableCell>
                 <TableCell>Cấp bậc</TableCell>
-                <TableCell align='right'>Ví ký quỹ</TableCell>
-                <TableCell align='right'>Doanh số tổng hợp</TableCell>
+                <TableCell align='right'>Giá vốn</TableCell>
+                <TableCell align='right'>Doanh thu</TableCell>
+                <TableCell align='right'>Lợi nhuận</TableCell>
                 <TableCell align='right'>Đơn hàng</TableCell>
-                <TableCell>API Gateway</TableCell>
+
                 <TableCell>Trạng thái</TableCell>
                 <TableCell align='right'>Hành động</TableCell>
               </TableRow>
@@ -276,7 +281,7 @@ const AgentsView = () => {
                   <TableCell>
                     <Box
                       className='flex items-center gap-3 cursor-pointer'
-                      onClick={() => openDrawer(a, 'view')}
+                      onClick={() => router.push(`/3m/agents/${a.id}`)}
                       sx={{ '&:hover': { '& .agt-name': { color: 'primary.main' } } }}
                     >
                       <Avatar
@@ -319,8 +324,8 @@ const AgentsView = () => {
                     />
                   </TableCell>
                   <TableCell align='right'>
-                    <Typography sx={{ fontWeight: 700 }} color={a.walletBalanceVND >= 0 ? 'success.main' : 'error.main'}>
-                      {a.walletBalanceVND.toLocaleString('vi-VN')}đ
+                    <Typography sx={{ fontWeight: 600 }}>
+                      {a.totalCostVND.toLocaleString('vi-VN')}đ
                     </Typography>
                   </TableCell>
                   <TableCell align='right'>
@@ -329,17 +334,14 @@ const AgentsView = () => {
                     </Typography>
                   </TableCell>
                   <TableCell align='right'>
+                    <Typography sx={{ fontWeight: 700 }} color='success.main'>
+                      {(a.totalSalesVND - a.totalCostVND).toLocaleString('vi-VN')}đ
+                    </Typography>
+                  </TableCell>
+                  <TableCell align='right'>
                     <Typography sx={{ fontWeight: 600 }}>{a.ordersCount}</Typography>
                   </TableCell>
-                  <TableCell>
-                    <Chip
-                      size='small'
-                      variant='tonal'
-                      color={a.apiKeyEnabled ? 'success' : 'secondary'}
-                      label={a.apiKeyEnabled ? 'Active' : 'Off'}
-                      sx={{ fontWeight: 600 }}
-                    />
-                  </TableCell>
+
                   <TableCell>
                     <Chip
                       size='small'
@@ -351,8 +353,8 @@ const AgentsView = () => {
                   </TableCell>
                   <TableCell align='right'>
                     <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
-                      <Tooltip title='Xem & Sửa'>
-                        <IconButton size='small' onClick={() => openDrawer(a, 'view')}>
+                      <Tooltip title='Xem chi tiết & Thành viên'>
+                        <IconButton size='small' onClick={() => router.push(`/3m/agents/${a.id}`)}>
                           <i className='tabler-eye text-[20px]' />
                         </IconButton>
                       </Tooltip>

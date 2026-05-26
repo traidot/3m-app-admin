@@ -22,6 +22,9 @@ import Tooltip from '@mui/material/Tooltip'
 import Stack from '@mui/material/Stack'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import Avatar from '@mui/material/Avatar'
 
 import OrderLogDialog from './OrderLogDialog'
 import {
@@ -36,15 +39,33 @@ import {
   type OrderStatus
 } from './data'
 
+import {
+  AGENTS,
+  tierColor,
+  statusColor as agentStatusColor,
+  statusLabel as agentStatusLabel,
+  type Agent
+} from '../agents/data'
+
 const KPI_CONFIG = [
   { key: 'total', label: 'Tổng số đơn hàng', icon: 'tabler-shopping-cart', color: 'primary' as const },
   { key: 'successRate', label: 'Tỷ lệ kích hoạt thành công', icon: 'tabler-circle-check', color: 'success' as const },
   { key: 'gmv', label: 'Doanh số toàn sàn (VND)', icon: 'tabler-cash', color: 'warning' as const },
-  { key: 'failed', label: 'Số đơn hàng lỗi cần xử lý', icon: 'tabler-alert-triangle', color: 'error' as const }
+  { key: 'failed', label: 'Số đơn hàng lỗi cần cứu hộ', icon: 'tabler-alert-triangle', color: 'error' as const }
 ]
 
 const OrdersView = () => {
   const [orders, setOrders] = useState<Order[]>(ORDERS)
+  
+  // Tab states
+  const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview')
+
+  // Tab 1: Overview (Agents Metrics) Filters
+  const [agentSearch, setAgentSearch] = useState('')
+  const [agentTier, setAgentTier] = useState('all')
+  const [agentStatus, setAgentStatus] = useState('all')
+
+  // Tab 2: Details (Orders List) Filters
   const [search, setSearch] = useState('')
   const [agent, setAgent] = useState('all')
   const [supplier, setSupplier] = useState('all')
@@ -57,11 +78,29 @@ const OrdersView = () => {
   // Toast state
   const [toast, setToast] = useState<{ severity: 'success' | 'info'; message: string } | null>(null)
 
-  // Unique filters lists
+  // Unique lists for details filters
   const agentList = useMemo(() => Array.from(new Set(orders.map(o => o.agentName))), [orders])
   const supplierList = useMemo(() => Array.from(new Set(orders.map(o => o.supplier))), [orders])
 
-  const filtered = useMemo(() => {
+  // Overview Tab: Filtered Agents
+  const filteredAgents = useMemo(() => {
+    return AGENTS.filter(a => {
+      const q = agentSearch.toLowerCase()
+      const matchSearch =
+        !q ||
+        a.name.toLowerCase().includes(q) ||
+        a.owner.toLowerCase().includes(q) ||
+        a.id.toLowerCase().includes(q)
+      return (
+        matchSearch &&
+        (agentTier === 'all' || a.tier === agentTier) &&
+        (agentStatus === 'all' || a.status === agentStatus)
+      )
+    })
+  }, [agentSearch, agentTier, agentStatus])
+
+  // Details Tab: Filtered Orders
+  const filteredOrders = useMemo(() => {
     return orders.filter(o => {
       const q = search.toLowerCase()
       const matchSearch =
@@ -78,6 +117,7 @@ const OrdersView = () => {
     })
   }, [orders, search, agent, supplier, status])
 
+  // KPIs calculations
   const kpis = useMemo(() => {
     const totalCount = orders.length
     const successCount = orders.filter(o => o.status === 'success').length
@@ -139,12 +179,19 @@ const OrdersView = () => {
   }
 
   const activeFilterCount = [agent, supplier, status].filter(v => v !== 'all').length
+  const activeAgentFilterCount = [agentTier, agentStatus].filter(v => v !== 'all').length
 
   const resetFilters = () => {
     setSearch('')
     setAgent('all')
     setSupplier('all')
     setStatus('all')
+  }
+
+  const resetAgentFilters = () => {
+    setAgentSearch('')
+    setAgentTier('all')
+    setAgentStatus('all')
   }
 
   const getMargin = (o: Order) => {
@@ -157,6 +204,15 @@ const OrdersView = () => {
     }
   }
 
+  const initials = (name: string) =>
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map(w => w[0])
+      .join('')
+      .toUpperCase()
+
   return (
     <Box>
       {/* Header */}
@@ -166,12 +222,12 @@ const OrdersView = () => {
             Đơn hàng toàn hệ thống
           </Typography>
           <Typography variant='body2' color='text.secondary'>
-            Giám sát, cứu hộ kích hoạt eSIM kỹ thuật, thử lại cấp phát lỗi, và hoàn tiền giao dịch cho đại lý.
+            Theo dõi doanh thu/chi phí của từng đại lý hoặc quản lý danh sách đơn hàng cứu hộ chi tiết.
           </Typography>
         </Box>
         <Stack direction='row' spacing={2}>
           <Button variant='tonal' color='secondary' startIcon={<i className='tabler-download' />}>
-            Xuất Excel đơn hàng
+            Xuất Excel báo cáo
           </Button>
         </Stack>
       </Box>
@@ -212,166 +268,318 @@ const OrdersView = () => {
         ))}
       </Grid2>
 
-      {/* Filter and Table container */}
-      <Card variant='outlined'>
-        <Box className='p-4' sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box className='flex items-center gap-3 mbe-3 flex-wrap'>
-            <TextField
-              size='small'
-              placeholder='Tìm theo mã đơn, khách hàng, tên eSIM...'
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              sx={{ flex: 1, minWidth: 280, maxWidth: 420 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position='start'>
-                    <i className='tabler-search text-[18px]' />
-                  </InputAdornment>
-                )
-              }}
-            />
-            <Box className='flex-grow' />
-            {(activeFilterCount > 0 || search) && (
-              <Button
+      {/* Navigation Tabs */}
+      <Tabs
+        value={activeTab}
+        onChange={(_, val) => val && setActiveTab(val)}
+        variant='standard'
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 6 }}
+      >
+        <Tab value='overview' label='Tổng quan doanh thu đại lý' icon={<i className='tabler-chart-pie mri-1 text-[18px]' />} iconPosition='start' />
+        <Tab value='details' label='Cụ thể đơn hàng' icon={<i className='tabler-list mri-1 text-[18px]' />} iconPosition='start' />
+      </Tabs>
+
+      {/* TAB 1: OVERVIEW (AGENTS METRICS) */}
+      {activeTab === 'overview' && (
+        <Card variant='outlined'>
+          <Box className='p-4' sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Box className='flex items-center gap-3 mbe-3 flex-wrap'>
+              <TextField
                 size='small'
-                variant='text'
-                color='secondary'
-                onClick={resetFilters}
-                startIcon={<i className='tabler-x text-[16px]' />}
-              >
-                Xoá lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-              </Button>
-            )}
-            <Typography variant='caption' color='text.secondary'>
-              Hiển thị <strong>{filtered.length}</strong> / {orders.length} đơn hàng
-            </Typography>
+                placeholder='Tìm theo tên đại lý, chủ sở hữu, ID...'
+                value={agentSearch}
+                onChange={e => setAgentSearch(e.target.value)}
+                sx={{ flex: 1, minWidth: 280, maxWidth: 420 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <i className='tabler-search text-[18px]' />
+                    </InputAdornment>
+                  )
+                }}
+              />
+              <Box className='flex-grow' />
+              {(activeAgentFilterCount > 0 || agentSearch) && (
+                <Button
+                  size='small'
+                  variant='text'
+                  color='secondary'
+                  onClick={resetAgentFilters}
+                  startIcon={<i className='tabler-x text-[16px]' />}
+                >
+                  Xoá lọc{activeAgentFilterCount > 0 ? ` (${activeAgentFilterCount})` : ''}
+                </Button>
+              )}
+              <Typography variant='caption' color='text.secondary'>
+                Hiển thị <strong>{filteredAgents.length}</strong> / {AGENTS.length} đại lý
+              </Typography>
+            </Box>
+
+            <Box className='grid gap-3' sx={{ gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' } }}>
+              <TextField size='small' select label='Cấp bậc (Tier)' value={agentTier} onChange={e => setAgentTier(e.target.value)}>
+                <MenuItem value='all'>Tất cả cấp bậc</MenuItem>
+                <MenuItem value='Platinum'>Platinum</MenuItem>
+                <MenuItem value='Gold'>Gold</MenuItem>
+                <MenuItem value='Silver'>Silver</MenuItem>
+              </TextField>
+              <TextField size='small' select label='Trạng thái' value={agentStatus} onChange={e => setAgentStatus(e.target.value)}>
+                <MenuItem value='all'>Tất cả trạng thái</MenuItem>
+                <MenuItem value='active'>Hoạt động</MenuItem>
+                <MenuItem value='blocked'>Đã khóa</MenuItem>
+              </TextField>
+            </Box>
           </Box>
 
-          <Box className='grid gap-3' sx={{ gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(3, 1fr)' } }}>
-            <TextField size='small' select label='Lọc Đại lý (Agent)' value={agent} onChange={e => setAgent(e.target.value)}>
-              <MenuItem value='all'>Tất cả đại lý</MenuItem>
-              {agentList.map(a => (
-                <MenuItem key={a} value={a}>{a}</MenuItem>
-              ))}
-            </TextField>
-            <TextField size='small' select label='Nhà cung cấp nguồn' value={supplier} onChange={e => setSupplier(e.target.value)}>
-              <MenuItem value='all'>Tất cả nhà cung cấp</MenuItem>
-              {supplierList.map(s => (
-                <MenuItem key={s} value={s}>{s}</MenuItem>
-              ))}
-            </TextField>
-            <TextField size='small' select label='Trạng thái đơn' value={status} onChange={e => setStatus(e.target.value)}>
-              <MenuItem value='all'>Tất cả trạng thái</MenuItem>
-              <MenuItem value='success'>Thành công</MenuItem>
-              <MenuItem value='pending'>Chờ duyệt</MenuItem>
-              <MenuItem value='failed'>Thất bại</MenuItem>
-              <MenuItem value='refunded'>Đã hoàn tiền</MenuItem>
-            </TextField>
-          </Box>
-        </Box>
-
-        <TableContainer>
-          <Table size='medium'>
-            <TableHead>
-              <TableRow>
-                <TableCell>Mã đơn</TableCell>
-                <TableCell>Khách hàng</TableCell>
-                <TableCell>Đại lý</TableCell>
-                <TableCell>Sản phẩm eSIM</TableCell>
-                <TableCell>Nguồn cấp</TableCell>
-                <TableCell align='right'>Giá vốn (Cost)</TableCell>
-                <TableCell align='right'>Giá bán</TableCell>
-                <TableCell align='right'>Biên độ lãi</TableCell>
-                <TableCell>Trạng thái</TableCell>
-                <TableCell align='right'>Hành động</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filtered.map(o => {
-                const margin = getMargin(o)
-                return (
-                  <TableRow key={o.id} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{o.id}</TableCell>
-                    <TableCell>{o.customerName}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{o.agentName}</TableCell>
-                    <TableCell>{o.packageName}</TableCell>
-                    <TableCell>{o.supplier}</TableCell>
-                    <TableCell align='right'>
-                      <Typography variant='body2'>{formatUSD(o.costUSD)}</Typography>
-                      <Typography variant='caption' color='text.secondary'>
-                        {formatUSDinVND(o.costUSD)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align='right' sx={{ fontWeight: 600 }}>
-                      {formatVND(o.retailPriceVND)}
-                    </TableCell>
-                    <TableCell align='right'>
-                      {o.status === 'success' ? (
-                        <>
-                          <Typography variant='body2' color={margin.vnd > 0 ? 'success.main' : 'error.main'} sx={{ fontWeight: 600 }}>
-                            +{formatVND(margin.vnd)}
-                          </Typography>
-                          <Typography variant='caption' color={margin.vnd > 0 ? 'success.main' : 'error.main'}>
-                            +{margin.pct.toFixed(0)}%
-                          </Typography>
-                        </>
-                      ) : (
-                        <Typography variant='caption' color='text.disabled'>
-                          --
+          <TableContainer>
+            <Table size='medium'>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Đại lý</TableCell>
+                  <TableCell>Cấp bậc</TableCell>
+                  <TableCell align='right'>Số đơn hàng</TableCell>
+                  <TableCell align='right'>Tổng giá vốn</TableCell>
+                  <TableCell align='right'>Tổng doanh thu</TableCell>
+                  <TableCell align='right'>Lợi nhuận gộp</TableCell>
+                  <TableCell>Trạng thái</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredAgents.map(a => {
+                  const profit = a.totalSalesVND - a.totalCostVND
+                  return (
+                    <TableRow key={a.id} hover>
+                      <TableCell>
+                        <Box className='flex items-center gap-3'>
+                          <Avatar
+                            sx={{
+                              width: 40,
+                              height: 40,
+                              bgcolor: `rgba(var(--mui-palette-${tierColor[a.tier]}-mainChannel) / 0.12)`,
+                              color: `${tierColor[a.tier]}.main`,
+                              fontWeight: 600,
+                              fontSize: 14
+                            }}
+                          >
+                            {initials(a.name)}
+                          </Avatar>
+                          <Box>
+                            <Typography sx={{ fontWeight: 600 }}>{a.name}</Typography>
+                            <Typography variant='caption' color='text.secondary'>
+                              {a.id} · Chủ: {a.owner}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size='small'
+                          variant='tonal'
+                          color={tierColor[a.tier]}
+                          label={a.tier}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </TableCell>
+                      <TableCell align='right'>
+                        <Typography sx={{ fontWeight: 600 }}>{a.ordersCount}</Typography>
+                      </TableCell>
+                      <TableCell align='right'>
+                        <Typography sx={{ fontWeight: 600 }}>{formatVND(a.totalCostVND)}</Typography>
+                      </TableCell>
+                      <TableCell align='right'>
+                        <Typography sx={{ fontWeight: 600 }}>{formatVND(a.totalSalesVND)}</Typography>
+                      </TableCell>
+                      <TableCell align='right'>
+                        <Typography sx={{ fontWeight: 700 }} color='success.main'>
+                          {formatVND(profit)}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size='small'
-                        variant='tonal'
-                        color={statusColor[o.status]}
-                        label={statusLabel[o.status]}
-                        sx={{ fontWeight: 600 }}
-                      />
-                    </TableCell>
-                    <TableCell align='right'>
-                      <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
-                        <Tooltip title='Xem Log kỹ thuật'>
-                          <IconButton size='small' onClick={() => {
-                            setSelectedOrder(o)
-                            setLogOpen(true)
-                          }}>
-                            <i className='tabler-file-code text-[20px] text-primary' />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        {o.status === 'failed' && (
-                          <Tooltip title='Thử lại kích hoạt (Retry)'>
-                            <IconButton size='small' onClick={() => handleRetry(o.id)}>
-                              <i className='tabler-refresh text-[20px] text-success' />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-
-                        {(o.status === 'failed' || o.status === 'pending') && (
-                          <Tooltip title='Hủy & Hoàn tiền về ví đại lý'>
-                            <IconButton size='small' onClick={() => handleRefund(o.id)}>
-                              <i className='tabler-circle-x text-[20px] text-danger' />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size='small'
+                          variant='tonal'
+                          color={agentStatusColor[a.status]}
+                          label={agentStatusLabel[a.status]}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+                {filteredAgents.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} align='center' sx={{ py: 6 }}>
+                      <Typography color='text.secondary'>Không có đại lý nào khớp bộ lọc.</Typography>
                     </TableCell>
                   </TableRow>
-                )
-              })}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={10} align='center' sx={{ py: 6 }}>
-                    <Typography color='text.secondary'>Không có đơn hàng nào khớp bộ lọc.</Typography>
-                  </TableCell>
-                </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
+
+      {/* TAB 2: DETAILS (ORDERS LIST) */}
+      {activeTab === 'details' && (
+        <Card variant='outlined'>
+          <Box className='p-4' sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Box className='flex items-center gap-3 mbe-3 flex-wrap'>
+              <TextField
+                size='small'
+                placeholder='Tìm theo mã đơn, khách hàng, tên eSIM...'
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                sx={{ flex: 1, minWidth: 280, maxWidth: 420 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <i className='tabler-search text-[18px]' />
+                    </InputAdornment>
+                  )
+                }}
+              />
+              <Box className='flex-grow' />
+              {(activeFilterCount > 0 || search) && (
+                <Button
+                  size='small'
+                  variant='text'
+                  color='secondary'
+                  onClick={resetFilters}
+                  startIcon={<i className='tabler-x text-[16px]' />}
+                >
+                  Xoá lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                </Button>
               )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+              <Typography variant='caption' color='text.secondary'>
+                Hiển thị <strong>{filteredOrders.length}</strong> / {orders.length} đơn hàng
+              </Typography>
+            </Box>
+
+            <Box className='grid gap-3' sx={{ gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(3, 1fr)' } }}>
+              <TextField size='small' select label='Lọc Đại lý (Agent)' value={agent} onChange={e => setAgent(e.target.value)}>
+                <MenuItem value='all'>Tất cả đại lý</MenuItem>
+                {agentList.map(a => (
+                  <MenuItem key={a} value={a}>{a}</MenuItem>
+                ))}
+              </TextField>
+              <TextField size='small' select label='Nhà cung cấp nguồn' value={supplier} onChange={e => setSupplier(e.target.value)}>
+                <MenuItem value='all'>Tất cả nhà cung cấp</MenuItem>
+                {supplierList.map(s => (
+                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                ))}
+              </TextField>
+              <TextField size='small' select label='Trạng thái đơn' value={status} onChange={e => setStatus(e.target.value)}>
+                <MenuItem value='all'>Tất cả trạng thái</MenuItem>
+                <MenuItem value='success'>Thành công</MenuItem>
+                <MenuItem value='pending'>Chờ duyệt</MenuItem>
+                <MenuItem value='failed'>Thất bại</MenuItem>
+                <MenuItem value='refunded'>Đã hoàn tiền</MenuItem>
+              </TextField>
+            </Box>
+          </Box>
+
+          <TableContainer>
+            <Table size='medium'>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Mã đơn</TableCell>
+                  <TableCell>Khách hàng</TableCell>
+                  <TableCell>Đại lý</TableCell>
+                  <TableCell>Sản phẩm eSIM</TableCell>
+                  <TableCell>Nguồn cấp</TableCell>
+                  <TableCell align='right'>Giá vốn (Cost)</TableCell>
+                  <TableCell align='right'>Giá bán</TableCell>
+                  <TableCell align='right'>Biên độ lãi</TableCell>
+                  <TableCell>Trạng thái</TableCell>
+                  <TableCell align='right'>Hành động</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredOrders.map(o => {
+                  const margin = getMargin(o)
+                  return (
+                    <TableRow key={o.id} hover>
+                      <TableCell sx={{ fontWeight: 600 }}>{o.id}</TableCell>
+                      <TableCell>{o.customerName}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{o.agentName}</TableCell>
+                      <TableCell>{o.packageName}</TableCell>
+                      <TableCell>{o.supplier}</TableCell>
+                      <TableCell align='right'>
+                        <Typography variant='body2'>{formatUSD(o.costUSD)}</Typography>
+                        <Typography variant='caption' color='text.secondary'>
+                          {formatUSDinVND(o.costUSD)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align='right' sx={{ fontWeight: 600 }}>
+                        {formatVND(o.retailPriceVND)}
+                      </TableCell>
+                      <TableCell align='right'>
+                        {o.status === 'success' ? (
+                          <>
+                            <Typography variant='body2' color={margin.vnd > 0 ? 'success.main' : 'error.main'} sx={{ fontWeight: 600 }}>
+                              +{formatVND(margin.vnd)}
+                            </Typography>
+                            <Typography variant='caption' color={margin.vnd > 0 ? 'success.main' : 'error.main'}>
+                              +{margin.pct.toFixed(0)}%
+                            </Typography>
+                          </>
+                        ) : (
+                          <Typography variant='caption' color='text.disabled'>
+                            --
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size='small'
+                          variant='tonal'
+                          color={statusColor[o.status]}
+                          label={statusLabel[o.status]}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </TableCell>
+                      <TableCell align='right'>
+                        <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
+                          <Tooltip title='Xem Log kỹ thuật'>
+                            <IconButton size='small' onClick={() => {
+                              setSelectedOrder(o)
+                              setLogOpen(true)
+                            }}>
+                              <i className='tabler-file-code text-[20px] text-primary' />
+                            </IconButton>
+                          </Tooltip>
+                          
+                          {o.status === 'failed' && (
+                            <Tooltip title='Thử lại kích hoạt (Retry)'>
+                              <IconButton size='small' onClick={() => handleRetry(o.id)}>
+                                <i className='tabler-refresh text-[20px] text-success' />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+
+                          {(o.status === 'failed' || o.status === 'pending') && (
+                            <Tooltip title='Hủy & Hoàn tiền về ví đại lý'>
+                              <IconButton size='small' onClick={() => handleRefund(o.id)}>
+                                <i className='tabler-circle-x text-[20px] text-danger' />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+                {filteredOrders.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={10} align='center' sx={{ py: 6 }}>
+                      <Typography color='text.secondary'>Không có đơn hàng nào khớp bộ lọc.</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
 
       <OrderLogDialog
         open={logOpen}

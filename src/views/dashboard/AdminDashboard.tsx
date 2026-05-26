@@ -74,15 +74,15 @@ const AdminDashboard = () => {
     { name: 'Chi phí', data: [65000, 70000, 82000, 78000, 92300, 0, 0, 0, 0, 0, 0, 0] }
   ]
 
-  const pieOptionsSuppliers: any = {
+  const pieOptionsRegions: any = {
     chart: { type: 'donut' },
-    labels: ['Airalo', 'Nomad', 'Truphone', 'MobiMatter'],
-    colors: [primaryColor, infoColor, warningColor, successColor],
+    labels: ['Nhật Bản', 'Hàn Quốc', 'Châu Âu', 'Mỹ', 'Đông Nam Á'],
+    colors: [primaryColor, infoColor, warningColor, successColor, errorColor],
     stroke: { width: 0 },
     dataLabels: { enabled: false },
     legend: { position: 'bottom' }
   }
-  const pieSeriesSuppliers = [45, 25, 20, 10]
+  const pieSeriesRegions = [30, 25, 20, 15, 10]
 
   const pieOptionsAgents: any = {
     chart: { type: 'donut' },
@@ -162,15 +162,15 @@ const AdminDashboard = () => {
           </Card>
         </Grid2>
 
-        {/* Suppliers Pie Chart */}
+        {/* Regions / Countries Pie Chart */}
         <Grid2 size={{ xs: 12, md: 6 }}>
           <Card>
             <CardHeader 
-              title='Cấu trúc theo Nhà cung cấp' 
-              subheader='Tỷ trọng giao dịch theo Upstream'
+              title='Cấu trúc theo Vùng / Quốc gia' 
+              subheader='Tỷ trọng doanh thu theo khu vực địa lý'
             />
             <CardContent className='flex justify-center'>
-              <AppReactApexCharts type='donut' height={300} options={pieOptionsSuppliers} series={pieSeriesSuppliers} />
+              <AppReactApexCharts type='donut' height={300} options={pieOptionsRegions} series={pieSeriesRegions} />
             </CardContent>
           </Card>
         </Grid2>
