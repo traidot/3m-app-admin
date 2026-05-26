@@ -14,6 +14,7 @@ export type Coupon = {
   usageLimit: number | null // null = không giới hạn
   perCustomerLimit: number | null
   usedCount: number
+  sentCount: number // Số lượng đã gửi cho khách hàng
   scope: CouponScope
   startAt: string
   endAt: string | null // null = không hết hạn
@@ -34,6 +35,7 @@ export const COUPONS: Coupon[] = [
     usageLimit: 500,
     perCustomerLimit: 1,
     usedCount: 187,
+    sentCount: 450,
     scope: 'all',
     startAt: '2026-05-01',
     endAt: '2026-08-31',
@@ -52,6 +54,7 @@ export const COUPONS: Coupon[] = [
     usageLimit: null,
     perCustomerLimit: 1,
     usedCount: 1_245,
+    sentCount: 3200,
     scope: 'first_order',
     startAt: '2025-12-01',
     endAt: null,
@@ -70,6 +73,7 @@ export const COUPONS: Coupon[] = [
     usageLimit: 200,
     perCustomerLimit: 2,
     usedCount: 89,
+    sentCount: 150,
     scope: 'specific_packages',
     startAt: '2026-05-15',
     endAt: '2026-06-15',
@@ -88,6 +92,7 @@ export const COUPONS: Coupon[] = [
     usageLimit: 1_000,
     perCustomerLimit: 1,
     usedCount: 982,
+    sentCount: 2500,
     scope: 'all',
     startAt: '2025-11-25',
     endAt: '2025-12-01',
@@ -106,6 +111,7 @@ export const COUPONS: Coupon[] = [
     usageLimit: 800,
     perCustomerLimit: 1,
     usedCount: 0,
+    sentCount: 800,
     scope: 'all',
     startAt: '2027-02-01',
     endAt: '2027-02-28',
@@ -124,6 +130,7 @@ export const COUPONS: Coupon[] = [
     usageLimit: 300,
     perCustomerLimit: 1,
     usedCount: 47,
+    sentCount: 120,
     scope: 'specific_packages',
     startAt: '2026-04-01',
     endAt: '2026-07-31',
@@ -142,6 +149,7 @@ export const COUPONS: Coupon[] = [
     usageLimit: null,
     perCustomerLimit: null,
     usedCount: 312,
+    sentCount: 500,
     scope: 'all',
     startAt: '2026-01-01',
     endAt: null,

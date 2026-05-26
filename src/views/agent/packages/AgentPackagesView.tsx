@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -21,6 +22,12 @@ import MenuItem from '@mui/material/MenuItem'
 import InputAdornment from '@mui/material/InputAdornment'
 import Tooltip from '@mui/material/Tooltip'
 import Stack from '@mui/material/Stack'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import Alert from '@mui/material/Alert'
+import Snackbar from '@mui/material/Snackbar'
 
 import {
   AGENT_PACKAGES,
@@ -30,6 +37,7 @@ import {
   type AgentPackage
 } from './data'
 import SourcePoolDrawer from './SourcePoolDrawer'
+import PricingHistoryDrawer, { type PricingBatch } from './PricingHistoryDrawer'
 
 const KPI_CONFIG = [
   { key: 'total', label: 'Tổng gói cước', icon: 'tabler-packages', color: 'primary' as const },
@@ -43,6 +51,112 @@ const formatData = (pkg: AgentPackage) =>
 
 const AgentPackagesView = () => {
   const [packages, setPackages] = useState<AgentPackage[]>(AGENT_PACKAGES)
+  const [batches, setBatches] = useState<PricingBatch[]>([])
+
+  useEffect(() => {
+    const storedPkgs = localStorage.getItem('3m_agent_packages')
+    if (storedPkgs) {
+      try {
+        setPackages(JSON.parse(storedPkgs))
+      } catch (e) {
+        console.error(e)
+      }
+    } else {
+      localStorage.setItem('3m_agent_packages', JSON.stringify(AGENT_PACKAGES))
+    }
+
+    const storedBatches = localStorage.getItem('3m_pricing_batches')
+    if (storedBatches) {
+      try {
+        setBatches(JSON.parse(storedBatches))
+      } catch (e) {
+        console.error(e)
+      }
+    } else {
+      const seeded: PricingBatch[] = [
+        {
+          id: 'BATCH-004',
+          appliedAt: '2026-05-26 11:42',
+          type: 'rule',
+          version: 'v1.2',
+          priorityOrder: ['price', 'quality', 'bestseller'],
+          globalMarkup: 15,
+          regionalOverrides: ['Châu Á (+20%)', 'Châu Âu (+18%)'],
+          countryOverrides: [],
+          packagesCount: 7,
+          status: 'success',
+          appliedBy: 'Đại lý David',
+          packagesSnapshot: [
+            { id: 'PKG-001', name: 'eSIM đi Nhật Bản', region: 'Asia', country: 'Nhật Bản', supplier: 'eSIM Access', costVND: 107100, costUSD: 4.2, markupPct: 20, sellPriceVND: 129000 },
+            { id: 'PKG-002', name: 'eSIM đi Hàn Quốc', region: 'Asia', country: 'Hàn Quốc', supplier: 'GoMoWorld', costVND: 183600, costUSD: 7.2, markupPct: 20, sellPriceVND: 220000 },
+            { id: 'PKG-003', name: 'eSIM Châu Âu 30 nước', region: 'Europe', country: 'Châu Âu (30 nước)', supplier: 'Airalo Wholesale', costVND: 303450, costUSD: 11.9, markupPct: 18, sellPriceVND: 358000 },
+            { id: 'PKG-004', name: 'SIM vật lý đi Mỹ', region: 'America', country: 'Hoa Kỳ', supplier: 'eSIM Access', costVND: 471750, costUSD: 18.5, markupPct: 15, sellPriceVND: 543000 },
+            { id: 'PKG-005', name: 'eSIM Đông Nam Á 8 nước', region: 'Asia', country: 'Đông Nam Á', supplier: 'GoMoWorld', costVND: 89250, costUSD: 3.5, markupPct: 20, sellPriceVND: 107000 },
+            { id: 'PKG-006', name: 'eSIM Toàn cầu 100 nước', region: 'Global', country: 'Toàn cầu', supplier: 'Airalo Wholesale', costVND: 892500, costUSD: 35.0, markupPct: 15, sellPriceVND: 1026000 },
+            { id: 'PKG-007', name: 'SIM vật lý đi Thái Lan', region: 'Asia', country: 'Thái Lan', supplier: 'GoMoWorld', costVND: 158100, costUSD: 6.2, markupPct: 20, sellPriceVND: 199000 }
+          ]
+        },
+        {
+          id: 'BATCH-003',
+          appliedAt: '2026-05-20 09:30',
+          type: 'rule',
+          version: 'v1.1',
+          priorityOrder: ['quality', 'price', 'bestseller'],
+          globalMarkup: 12,
+          regionalOverrides: ['Châu Á (+15%)'],
+          countryOverrides: ['Nhật Bản (+25%)'],
+          packagesCount: 5,
+          status: 'success',
+          appliedBy: 'Đại lý David',
+          packagesSnapshot: [
+            { id: 'PKG-001', name: 'eSIM đi Nhật Bản', region: 'Asia', country: 'Nhật Bản', supplier: 'Airalo Wholesale', costVND: 126225, costUSD: 4.95, markupPct: 25, sellPriceVND: 158000 },
+            { id: 'PKG-002', name: 'eSIM đi Hàn Quốc', region: 'Asia', country: 'Hàn Quốc', supplier: 'eSIM Access', costVND: 198900, costUSD: 7.8, markupPct: 15, sellPriceVND: 229000 },
+            { id: 'PKG-003', name: 'eSIM Châu Âu 30 nước', region: 'Europe', country: 'Châu Âu (30 nước)', supplier: 'eSIM Access', costVND: 316200, costUSD: 12.4, markupPct: 12, sellPriceVND: 354000 },
+            { id: 'PKG-005', name: 'eSIM Đông Nam Á 8 nước', region: 'Asia', country: 'Đông Nam Á', supplier: 'Airalo Wholesale', costVND: 99450, costUSD: 3.9, markupPct: 15, sellPriceVND: 114000 },
+            { id: 'PKG-006', name: 'eSIM Toàn cầu 100 nước', region: 'Global', country: 'Toàn cầu', supplier: 'Airalo Wholesale', costVND: 892500, costUSD: 35.0, markupPct: 12, sellPriceVND: 1000000 }
+          ]
+        },
+        {
+          id: 'BATCH-002',
+          appliedAt: '2026-05-10 14:15',
+          type: 'rule',
+          version: 'v1.0',
+          priorityOrder: ['price', 'quality', 'bestseller'],
+          globalMarkup: 10,
+          regionalOverrides: [],
+          countryOverrides: [],
+          packagesCount: 7,
+          status: 'success',
+          appliedBy: 'Hệ thống Auto',
+          packagesSnapshot: [
+            { id: 'PKG-001', name: 'eSIM đi Nhật Bản', region: 'Asia', country: 'Nhật Bản', supplier: 'eSIM Access', costVND: 107100, costUSD: 4.2, markupPct: 10, sellPriceVND: 118000 },
+            { id: 'PKG-002', name: 'eSIM đi Hàn Quốc', region: 'Asia', country: 'Hàn Quốc', supplier: 'GoMoWorld', costVND: 183600, costUSD: 7.2, markupPct: 10, sellPriceVND: 202000 },
+            { id: 'PKG-003', name: 'eSIM Châu Âu 30 nước', region: 'Europe', country: 'Châu Âu (30 nước)', supplier: 'Airalo Wholesale', costVND: 303450, costUSD: 11.9, markupPct: 10, sellPriceVND: 334000 },
+            { id: 'PKG-004', name: 'SIM vật lý đi Mỹ', region: 'America', country: 'Hoa Kỳ', supplier: 'eSIM Access', costVND: 471750, costUSD: 18.5, markupPct: 10, sellPriceVND: 519000 },
+            { id: 'PKG-005', name: 'eSIM Đông Nam Á 8 nước', region: 'Asia', country: 'Đông Nam Á', supplier: 'GoMoWorld', costVND: 89250, costUSD: 3.5, markupPct: 10, sellPriceVND: 98000 },
+            { id: 'PKG-006', name: 'eSIM Toàn cầu 100 nước', region: 'Global', country: 'Toàn cầu', supplier: 'Airalo Wholesale', costVND: 892500, costUSD: 35.0, markupPct: 10, sellPriceVND: 982000 },
+            { id: 'PKG-007', name: 'SIM vật lý đi Thái Lan', region: 'Asia', country: 'Thái Lan', supplier: 'GoMoWorld', costVND: 158100, costUSD: 6.2, markupPct: 10, sellPriceVND: 174000 }
+          ]
+        },
+        {
+          id: 'BATCH-001',
+          appliedAt: '2026-05-01 08:00',
+          type: 'rule',
+          version: 'v0.9',
+          priorityOrder: ['price', 'quality', 'bestseller'],
+          globalMarkup: 15,
+          regionalOverrides: [],
+          countryOverrides: [],
+          packagesCount: 7,
+          status: 'failed',
+          appliedBy: 'Đại lý David'
+        }
+      ]
+      setBatches(seeded)
+      localStorage.setItem('3m_pricing_batches', JSON.stringify(seeded))
+    }
+  }, [])
+
   const [search, setSearch] = useState('')
   const [region, setRegion] = useState<string>('all')
   const [country, setCountry] = useState<string>('all')
@@ -53,6 +167,13 @@ const AgentPackagesView = () => {
   const [status, setStatus] = useState<string>('all')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activePkg, setActivePkg] = useState<AgentPackage | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [editPriceOpen, setEditPriceOpen] = useState(false)
+  const [editPkg, setEditPkg] = useState<AgentPackage | null>(null)
+  const [newPriceVND, setNewPriceVND] = useState<number>(0)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastOpen, setToastOpen] = useState(false)
+  const router = useRouter()
 
   const countryOptions = useMemo(() => {
     const map = new Map<string, { code: string; label: string; flag: string }>()
@@ -140,6 +261,22 @@ const AgentPackagesView = () => {
     setPackages(prev => prev.map(p => (p.id === pkgId ? { ...p, pinnedSourceId } : p)))
   }
 
+  const handleOpenEditPrice = (pkg: AgentPackage) => {
+    setEditPkg(pkg)
+    setNewPriceVND(pkg.sellPriceVND)
+    setEditPriceOpen(true)
+  }
+
+  const handleSavePrice = () => {
+    if (!editPkg) return
+    setPackages(prev =>
+      prev.map(p => (p.id === editPkg.id ? { ...p, sellPriceVND: newPriceVND } : p))
+    )
+    setToastMessage(`Đã cập nhật giá bán mới cho gói ${editPkg.name}!`)
+    setToastOpen(true)
+    setEditPriceOpen(false)
+  }
+
   return (
     <Box>
       {/* Page header */}
@@ -154,11 +291,21 @@ const AgentPackagesView = () => {
           </Typography>
         </Box>
         <Stack direction='row' spacing={2}>
-          <Button variant='tonal' color='secondary' startIcon={<i className='tabler-refresh' />}>
-            Đồng bộ giá
+          <Button
+            variant='tonal'
+            color='primary'
+            startIcon={<i className='tabler-brain' />}
+            onClick={() => router.push('/agent/packages/smart')}
+          >
+            Cấu hình thông minh
           </Button>
-          <Button variant='contained' startIcon={<i className='tabler-plus' />}>
-            Thêm gói cước
+          <Button
+            variant='tonal'
+            color='secondary'
+            startIcon={<i className='tabler-history' />}
+            onClick={() => router.push('/agent/packages/history')}
+          >
+            Lịch sử định giá
           </Button>
         </Stack>
       </Box>
@@ -320,7 +467,7 @@ const AgentPackagesView = () => {
                     <TableCell>
                       <Typography sx={{ fontWeight: 600 }}>{pkg.name}</Typography>
                       <Typography variant='caption' color='text.secondary'>
-                        {pkg.id} · {pkg.type}
+                        {pkg.id}{pkg.type && pkg.type !== 'Data only' ? ` · ${pkg.type}` : ''}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -345,9 +492,6 @@ const AgentPackagesView = () => {
                         <Box>
                           <Typography variant='body2' sx={{ fontWeight: 500, lineHeight: 1.2 }}>
                             {pkg.country}
-                          </Typography>
-                          <Typography variant='caption' color='text.secondary'>
-                            {pkg.region}
                           </Typography>
                         </Box>
                       </Box>
@@ -418,14 +562,9 @@ const AgentPackagesView = () => {
                             <i className='tabler-stack-2 text-[20px]' />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title='Chỉnh sửa'>
-                          <IconButton size='small'>
+                        <Tooltip title='Chỉnh sửa giá bán'>
+                          <IconButton size='small' onClick={() => handleOpenEditPrice(pkg)}>
                             <i className='tabler-pencil text-[20px]' />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title='Xoá'>
-                          <IconButton size='small'>
-                            <i className='tabler-trash text-[20px]' />
                           </IconButton>
                         </Tooltip>
                       </Stack>
@@ -452,6 +591,100 @@ const AgentPackagesView = () => {
         onClose={() => setDrawerOpen(false)}
         onSave={handleSavePinned}
       />
+
+
+
+      {/* Edit Retail Price Dialog */}
+      <Dialog
+        open={editPriceOpen}
+        onClose={() => setEditPriceOpen(false)}
+        maxWidth='xs'
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>Chỉnh sửa giá bán lẻ</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {editPkg && (
+            <Stack spacing={4} sx={{ mt: 1 }}>
+              {/* Package Meta Info */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, p: 3, borderRadius: 1.5, backgroundColor: 'action.hover' }}>
+                <Typography fontSize={24}>{editPkg.flag}</Typography>
+                <Box>
+                  <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                    {editPkg.name}
+                  </Typography>
+                  <Typography variant='caption' color='text.secondary'>
+                    {editPkg.id} · {editPkg.region}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Pricing Context */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1 }}>
+                <Typography variant='body2' color='text.secondary'>Giá vốn sỉ hiện tại:</Typography>
+                <Typography sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  {costVND(editPkg).toLocaleString('vi-VN')}đ
+                </Typography>
+              </Box>
+
+              {/* Price input field */}
+              <TextField
+                autoFocus
+                label='Giá bán lẻ mới (VND)'
+                type='number'
+                fullWidth
+                value={newPriceVND}
+                onChange={e => setNewPriceVND(Math.max(0, Number(e.target.value)))}
+                InputProps={{
+                  endAdornment: <InputAdornment position='end'>đ</InputAdornment>
+                }}
+                helperText={(() => {
+                  const cost = costVND(editPkg)
+                  if (cost <= 0) return ''
+                  const margin = Math.round(((newPriceVND - cost) / cost) * 100)
+                  return (
+                    <Typography
+                      variant='caption'
+                      component='span'
+                      sx={{
+                        fontWeight: 500,
+                        color: margin >= 30 ? 'success.main' : margin >= 10 ? 'warning.main' : 'error.main'
+                      }}
+                    >
+                      Biên lợi nhuận dự kiến: {margin > 0 ? '+' : ''}{margin}%
+                    </Typography>
+                  )
+                })()}
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 5, pb: 4 }}>
+          <Button variant='tonal' color='secondary' onClick={() => setEditPriceOpen(false)}>
+            Huỷ bỏ
+          </Button>
+          <Button variant='contained' color='primary' onClick={handleSavePrice} disabled={!editPkg || newPriceVND <= 0}>
+            Cập nhật
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={3000}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setToastOpen(false)}
+          severity='success'
+          variant='filled'
+          sx={{ width: '100%', boxShadow: 3 }}
+          icon={<i className='tabler-circle-check text-[22px]' />}
+        >
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

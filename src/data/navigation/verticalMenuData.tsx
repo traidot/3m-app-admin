@@ -19,15 +19,36 @@ const verticalMenuData = (dictionary: Awaited<ReturnType<typeof getDictionary>>)
       ]
     },
     {
-      label: 'Agent',
+      label: 'QUẢN LÝ',
       isSection: true,
       roles: ['agent'],
       children: [
         { label: 'Bảng điều khiển', icon: 'tabler-smart-home', href: getUrl('/agent/dashboard') },
-        { label: 'Quản lý gói cước', icon: 'tabler-packages', href: getUrl('/agent/packages') },
-        { label: 'Quản lý khách hàng', icon: 'tabler-users', href: getUrl('/agent/customers') },
-        { label: 'Quản lý đơn hàng', icon: 'tabler-shopping-cart', href: getUrl('/agent/orders') },
-        { label: 'Quản lý coupon', icon: 'tabler-discount', href: getUrl('/agent/coupons') },
+        {
+          label: 'Quản lý gói cước',
+          icon: 'tabler-packages',
+          children: [
+            { label: 'Danh sách gói cước', icon: 'tabler-list', href: getUrl('/agent/packages') },
+            { label: 'Thiết lập gói cước', icon: 'tabler-brain', href: getUrl('/agent/packages/smart') },
+            { label: 'Lịch sử thiết lập gói cước', icon: 'tabler-history', href: getUrl('/agent/packages/history') },
+          ]
+        },
+        {
+          label: 'Kinh doanh',
+          icon: 'tabler-briefcase',
+          children: [
+            { label: 'Quản lý khách hàng', icon: 'tabler-users', href: getUrl('/agent/customers') },
+            { label: 'Quản lý đơn hàng', icon: 'tabler-shopping-cart', href: getUrl('/agent/orders') },
+            { label: 'Quản lý coupon', icon: 'tabler-discount', href: getUrl('/agent/coupons') },
+          ]
+        },
+      ]
+    },
+    {
+      label: 'HỆ THỐNG',
+      isSection: true,
+      roles: ['agent'],
+      children: [
         { label: 'Người dùng nội bộ', icon: 'tabler-user-shield', href: getUrl('/agent/users') },
         { label: 'Phân quyền vai trò', icon: 'tabler-key', href: getUrl('/agent/roles') },
         { label: 'Cấu hình hệ thống', icon: 'tabler-settings-cog', href: getUrl('/agent/app') }

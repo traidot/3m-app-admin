@@ -19,6 +19,8 @@ const horizontalMenuData = (
 
     { label: 'Bảng điều khiển', icon: 'tabler-smart-home', href: getUrl('/agent/dashboard'), roles: ['agent'] },
     { label: 'Gói cước', icon: 'tabler-packages', href: getUrl('/agent/packages'), roles: ['agent'] },
+    { label: 'Định giá thông minh', icon: 'tabler-brain', href: getUrl('/agent/packages/smart'), roles: ['agent'] },
+    { label: 'Lịch sử định giá', icon: 'tabler-history', href: getUrl('/agent/packages/history'), roles: ['agent'] },
     { label: 'Khách hàng', icon: 'tabler-users', href: getUrl('/agent/customers'), roles: ['agent'] },
     { label: 'Đơn hàng', icon: 'tabler-shopping-cart', href: getUrl('/agent/orders'), roles: ['agent'] },
     { label: 'Coupon', icon: 'tabler-discount', href: getUrl('/agent/coupons'), roles: ['agent'] },

@@ -332,14 +332,16 @@ const AgentUsersView = () => {
                             <i className='tabler-pencil text-[20px]' />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title='Xoá tài khoản'>
-                          <IconButton
-                            size='small'
-                            onClick={() => setDeleteTarget(u)}
-                            disabled={u.rolePreset === 'owner'}
-                          >
-                            <i className='tabler-trash text-[20px]' />
-                          </IconButton>
+                        <Tooltip title={u.rolePreset === 'owner' ? 'Không thể xoá Chủ tài khoản' : 'Xoá tài khoản'}>
+                          <span>
+                            <IconButton
+                              size='small'
+                              onClick={() => setDeleteTarget(u)}
+                              disabled={u.rolePreset === 'owner'}
+                            >
+                              <i className='tabler-trash text-[20px]' />
+                            </IconButton>
+                          </span>
                         </Tooltip>
                       </Stack>
                     </TableCell>

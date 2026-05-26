@@ -38,6 +38,7 @@ const emptyCoupon = (): Coupon => ({
   usageLimit: null,
   perCustomerLimit: 1,
   usedCount: 0,
+  sentCount: 0,
   scope: 'all',
   startAt: new Date().toISOString().slice(0, 10),
   endAt: null,
@@ -236,6 +237,17 @@ const CouponDrawer = ({ open, mode, coupon, onClose, onSave }: Props) => {
                 value={form.perCustomerLimit ?? ''}
                 onChange={e => setField('perCustomerLimit', e.target.value ? Number(e.target.value) : null)}
                 placeholder='Bỏ trống = không giới hạn'
+              />
+            </Grid2>
+            <Grid2 size={6}>
+              <TextField
+                size='small'
+                fullWidth
+                type='number'
+                label='Số lượng đã gửi'
+                value={form.sentCount}
+                onChange={e => setField('sentCount', Number(e.target.value))}
+                placeholder='Số lượng coupon đã phát hành'
               />
             </Grid2>
           </Grid2>

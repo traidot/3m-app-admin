@@ -23,7 +23,7 @@ import Stack from '@mui/material/Stack'
 
 import OrderDrawer from './OrderDrawer'
 
-type OrderStatus = 'pending' | 'paid' | 'activated' | 'completed' | 'cancelled' | 'refunded'
+type OrderStatus = 'pending' | 'paid' | 'activated' | 'completed' | 'cancelled'
 type PaymentMethod = 'momo' | 'vnpay' | 'card' | 'bank_transfer' | 'wallet' | 'cod'
 type SimType = 'esim' | 'physical'
 type Channel = 'app' | 'web' | 'manual'
@@ -155,7 +155,7 @@ const ORDERS: Order[] = [
     qty: 1,
     amountVND: 245_000,
     payment: 'wallet',
-    status: 'refunded',
+    status: 'activated',
     channel: 'app',
     createdAt: '2026-05-18 19:33',
     activatedAt: '2026-05-18 19:35'
@@ -182,13 +182,12 @@ const KPI_CONFIG = [
   { key: 'revenue', label: 'Doanh thu (VND)', icon: 'tabler-cash', color: 'info' as const }
 ]
 
-const statusMeta: Record<OrderStatus, { label: string; color: 'warning' | 'info' | 'success' | 'error' | 'secondary' }> = {
+const statusMeta: Record<OrderStatus, { label: string; color: 'warning' | 'info' | 'success' | 'error' }> = {
   pending: { label: 'Chờ thanh toán', color: 'warning' },
   paid: { label: 'Đã thanh toán', color: 'info' },
   activated: { label: 'Đã kích hoạt', color: 'info' },
   completed: { label: 'Hoàn tất', color: 'success' },
-  cancelled: { label: 'Đã huỷ', color: 'secondary' },
-  refunded: { label: 'Hoàn tiền', color: 'error' }
+  cancelled: { label: 'Đã huỷ', color: 'error' }
 }
 
 const paymentMeta: Record<PaymentMethod, { label: string; icon: string }> = {
@@ -251,10 +250,7 @@ const AgentOrdersView = () => {
       total: ORDERS.length,
       success: ORDERS.filter(o => o.status === 'completed' || o.status === 'activated').length,
       processing: ORDERS.filter(o => o.status === 'pending' || o.status === 'paid').length,
-      revenue: ORDERS.filter(o => o.status !== 'cancelled' && o.status !== 'refunded').reduce(
-        (s, o) => s + o.amountVND,
-        0
-      )
+      revenue: ORDERS.reduce((s, o) => s + o.amountVND, 0)
     }
   }, [])
 
@@ -376,8 +372,6 @@ const AgentOrdersView = () => {
               <MenuItem value='paid'>Đã thanh toán</MenuItem>
               <MenuItem value='activated'>Đã kích hoạt</MenuItem>
               <MenuItem value='completed'>Hoàn tất</MenuItem>
-              <MenuItem value='cancelled'>Đã huỷ</MenuItem>
-              <MenuItem value='refunded'>Hoàn tiền</MenuItem>
             </TextField>
             <TextField size='small' select label='Loại SIM' value={simType} onChange={e => setSimType(e.target.value)}>
               <MenuItem value='all'>Tất cả</MenuItem>
