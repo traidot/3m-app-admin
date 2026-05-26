@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { Fragment, useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
@@ -48,6 +48,9 @@ const KPI_CONFIG = [
 
 const formatData = (pkg: AgentPackage) =>
   pkg.dataGB === 'unlimited' ? 'Không giới hạn' : `${pkg.dataGB}GB`
+
+const dataSortValue = (pkg: AgentPackage) =>
+  pkg.dataGB === 'unlimited' ? Number.MAX_SAFE_INTEGER : pkg.dataGB
 
 const AgentPackagesView = () => {
   const [packages, setPackages] = useState<AgentPackage[]>(AGENT_PACKAGES)
@@ -179,6 +182,7 @@ const AgentPackagesView = () => {
   const [newPriceVND, setNewPriceVND] = useState<number>(0)
   const [toastMessage, setToastMessage] = useState('')
   const [toastOpen, setToastOpen] = useState(false)
+  const [collapsedCountries, setCollapsedCountries] = useState<string[]>([])
   const router = useRouter()
 
   const countryOptions = useMemo(() => {
@@ -227,6 +231,49 @@ const AgentPackagesView = () => {
     })
   }, [packages, search, region, country, simType, dataSize, duration, quotaType, status])
 
+  const sortedFiltered = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const countryCompare = a.country.localeCompare(b.country)
+      if (countryCompare !== 0) return countryCompare
+
+      const dataCompare = dataSortValue(a) - dataSortValue(b)
+      if (dataCompare !== 0) return dataCompare
+
+      const durationCompare = a.durationDays - b.durationDays
+      if (durationCompare !== 0) return durationCompare
+
+      return a.id.localeCompare(b.id)
+    })
+  }, [filtered])
+
+  const groupedPackages = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        key: string
+        country: string
+        region: string
+        flag: string
+        items: AgentPackage[]
+      }
+    >()
+
+    sortedFiltered.forEach(pkg => {
+      const group = groups.get(pkg.countryCode) ?? {
+        key: pkg.countryCode,
+        country: pkg.country,
+        region: pkg.region,
+        flag: pkg.flag,
+        items: []
+      }
+
+      group.items.push(pkg)
+      groups.set(pkg.countryCode, group)
+    })
+
+    return Array.from(groups.values())
+  }, [sortedFiltered])
+
   const activeFilterCount = [region, country, simType, dataSize, duration, quotaType, status].filter(
     v => v !== 'all'
   ).length
@@ -240,6 +287,12 @@ const AgentPackagesView = () => {
     setQuotaType('all')
     setStatus('all')
     setSearch('')
+  }
+
+  const toggleCountryGroup = (countryCode: string) => {
+    setCollapsedCountries(prev =>
+      prev.includes(countryCode) ? prev.filter(code => code !== countryCode) : [...prev, countryCode]
+    )
   }
 
   const kpis = useMemo(() => {
@@ -462,122 +515,152 @@ const AgentPackagesView = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map(pkg => {
-                const src = cheapestSource(pkg)
-                const cost = costVND(pkg)
-                const margin = marginPct(pkg)
-                const availableCount = pkg.sources.filter(s => s.status === 'available').length
-
-                return (
-                  <TableRow key={pkg.id} hover>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600 }}>{pkg.name}</Typography>
-                      <Typography variant='caption' color='text.secondary'>
-                        {pkg.id}{pkg.type && pkg.type !== 'Data only' ? ` · ${pkg.type}` : ''}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
+              {groupedPackages.map(group => (
+                <Fragment key={group.key}>
+                  <TableRow
+                    hover
+                    onClick={() => toggleCountryGroup(group.key)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell
+                      colSpan={11}
+                      sx={{
+                        py: 1.25,
+                        backgroundColor: 'action.hover',
+                        borderTop: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    >
                       <Box className='flex items-center gap-2'>
-                        <Box
-                          sx={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 1,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 16,
-                            backgroundColor: 'action.hover',
-                            flexShrink: 0
-                          }}
-                        >
-                          {pkg.flag}
-                        </Box>
-                        <Box>
-                          <Typography variant='body2' sx={{ fontWeight: 500, lineHeight: 1.2 }}>
-                            {pkg.country}
-                          </Typography>
-                        </Box>
+                        <i
+                          className={`tabler-chevron-${collapsedCountries.includes(group.key) ? 'right' : 'down'} text-[16px]`}
+                        />
+                        <Typography fontSize={18}>{group.flag}</Typography>
+                        <Typography sx={{ fontWeight: 700 }}>{group.country}</Typography>
+                        <Typography variant='caption' color='text.secondary'>
+                          {group.region} · {group.items.length} gói
+                        </Typography>
                       </Box>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant='body2' sx={{ fontWeight: 600 }}>
-                        {formatData(pkg)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant='body2'>{pkg.durationDays} ngày</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size='small'
-                        variant='tonal'
-                        color={pkg.simType === 'esim' ? 'primary' : 'warning'}
-                        label={pkg.simType === 'esim' ? 'eSIM' : 'Vật lý'}
-                        icon={<i className={`${pkg.simType === 'esim' ? 'tabler-device-mobile' : 'tabler-device-sd-card'} text-[14px]`} />}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size='small'
-                        variant='tonal'
-                        color={pkg.quotaType === 'daily' ? 'info' : 'secondary'}
-                        label={pkg.quotaType === 'daily' ? 'Daily' : 'Total'}
-                      />
-                    </TableCell>
-                    <TableCell align='right'>
-                      {src ? (
-                        <>
-                          <Typography sx={{ fontWeight: 600 }}>
-                            {cost.toLocaleString('vi-VN')}đ
-                          </Typography>
-                          <Typography variant='caption' color='text.secondary'>
-                            ${src.costUSD.toFixed(2)}
-                          </Typography>
-                        </>
-                      ) : (
-                        <Chip size='small' color='error' variant='tonal' label='Hết nguồn' />
-                      )}
-                    </TableCell>
-                    <TableCell align='right'>
-                      <Typography sx={{ fontWeight: 600 }}>
-                        {pkg.sellPriceVND.toLocaleString('vi-VN')}đ
-                      </Typography>
-                    </TableCell>
-                    <TableCell align='right'>
-                      <Chip
-                        size='small'
-                        variant='tonal'
-                        color={margin >= 30 ? 'success' : margin >= 10 ? 'warning' : 'error'}
-                        label={`${margin > 0 ? '+' : ''}${margin}%`}
-                      />
-                    </TableCell>
-                    <TableCell align='center'>
-                      <Switch
-                        checked={pkg.active}
-                        onChange={() => toggleActive(pkg.id)}
-                        size='small'
-                      />
-                    </TableCell>
-                    <TableCell align='right'>
-                      <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
-                        <Tooltip title='Xem rổ nguồn cung'>
-                          <IconButton size='small' onClick={() => openDrawer(pkg)}>
-                            <i className='tabler-stack-2 text-[20px]' />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title='Chỉnh sửa giá bán'>
-                          <IconButton size='small' onClick={() => handleOpenEditPrice(pkg)}>
-                            <i className='tabler-pencil text-[20px]' />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
                   </TableRow>
-                )
-              })}
+
+                  {!collapsedCountries.includes(group.key) && group.items.map(pkg => {
+                    const src = cheapestSource(pkg)
+                    const cost = costVND(pkg)
+                    const margin = marginPct(pkg)
+
+                    return (
+                      <TableRow key={pkg.id} hover>
+                        <TableCell>
+                          <Typography sx={{ fontWeight: 600 }}>{pkg.name}</Typography>
+                          <Typography variant='caption' color='text.secondary'>
+                            {pkg.id}{pkg.type && pkg.type !== 'Data only' ? ` · ${pkg.type}` : ''}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box className='flex items-center gap-2'>
+                            <Box
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 16,
+                                backgroundColor: 'action.hover',
+                                flexShrink: 0
+                              }}
+                            >
+                              {pkg.flag}
+                            </Box>
+                            <Box>
+                              <Typography variant='body2' sx={{ fontWeight: 500, lineHeight: 1.2 }}>
+                                {pkg.country}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                            {formatData(pkg)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant='body2'>{pkg.durationDays} ngày</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size='small'
+                            variant='tonal'
+                            color={pkg.simType === 'esim' ? 'primary' : 'warning'}
+                            label={pkg.simType === 'esim' ? 'eSIM' : 'Vật lý'}
+                            icon={<i className={`${pkg.simType === 'esim' ? 'tabler-device-mobile' : 'tabler-device-sd-card'} text-[14px]`} />}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size='small'
+                            variant='tonal'
+                            color={pkg.quotaType === 'daily' ? 'info' : 'secondary'}
+                            label={pkg.quotaType === 'daily' ? 'Daily' : 'Total'}
+                          />
+                        </TableCell>
+                        <TableCell align='right'>
+                          {src ? (
+                            <>
+                              <Typography sx={{ fontWeight: 600 }}>
+                                {cost.toLocaleString('vi-VN')}đ
+                              </Typography>
+                              <Typography variant='caption' color='text.secondary'>
+                                ${src.costUSD.toFixed(2)}
+                              </Typography>
+                            </>
+                          ) : (
+                            <Chip size='small' color='error' variant='tonal' label='Hết nguồn' />
+                          )}
+                        </TableCell>
+                        <TableCell align='right'>
+                          <Typography sx={{ fontWeight: 600 }}>
+                            {pkg.sellPriceVND.toLocaleString('vi-VN')}đ
+                          </Typography>
+                        </TableCell>
+                        <TableCell align='right'>
+                          <Chip
+                            size='small'
+                            variant='tonal'
+                            color={margin >= 30 ? 'success' : margin >= 10 ? 'warning' : 'error'}
+                            label={`${margin > 0 ? '+' : ''}${margin}%`}
+                          />
+                        </TableCell>
+                        <TableCell align='center'>
+                          <Switch
+                            checked={pkg.active}
+                            onChange={() => toggleActive(pkg.id)}
+                            size='small'
+                          />
+                        </TableCell>
+                        <TableCell align='right'>
+                          <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
+                            <Tooltip title='Xem rổ nguồn cung'>
+                              <IconButton size='small' onClick={() => openDrawer(pkg)}>
+                                <i className='tabler-stack-2 text-[20px]' />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title='Chỉnh sửa giá bán'>
+                              <IconButton size='small' onClick={() => handleOpenEditPrice(pkg)}>
+                                <i className='tabler-pencil text-[20px]' />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </Fragment>
+              ))}
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={11} align='center' sx={{ py: 6 }}>
