@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { Fragment, useMemo, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
@@ -31,7 +31,6 @@ import TableBody from '@mui/material/TableBody'
 import TableSortLabel from '@mui/material/TableSortLabel'
 import TablePagination from '@mui/material/TablePagination'
 import Alert from '@mui/material/Alert'
-import Tooltip from '@mui/material/Tooltip'
 import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Link from 'next/link'
 import * as XLSX from 'xlsx'
@@ -79,6 +78,13 @@ const criterionDetails = {
   }
 }
 
+const formatPackageData = (pkg: AgentPackage) =>
+  pkg.dataGB === 'unlimited' ? 'Không giới hạn' : `${pkg.dataGB}GB`
+
+const simTypeLabel = (pkg: AgentPackage) => (pkg.simType === 'esim' ? 'eSIM' : 'Vật lý')
+
+const quotaTypeLabel = (pkg: AgentPackage) => (pkg.quotaType === 'daily' ? 'Daily' : 'Total')
+
 const STEPS = [
   'Bước 1: Định giá thông minh',
   'Bước 2: Xác nhận quy tắc / Xuất Excel',
@@ -106,7 +112,13 @@ const AgentSmartPricingView = () => {
     const storedPkgs = localStorage.getItem('3m_agent_packages')
     if (storedPkgs) {
       try {
-        setPackages(JSON.parse(storedPkgs))
+        const parsed = JSON.parse(storedPkgs) as AgentPackage[]
+        const nextPackages = Array.isArray(parsed) && parsed.length >= AGENT_PACKAGES.length
+          ? parsed
+          : AGENT_PACKAGES
+
+        setPackages(nextPackages)
+        localStorage.setItem('3m_agent_packages', JSON.stringify(nextPackages))
       } catch (e) {
         console.error(e)
       }
@@ -234,11 +246,10 @@ const AgentSmartPricingView = () => {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [regionFilter, setRegionFilter] = useState<string>('all')
   const [countryFilter, setCountryFilter] = useState<string>('all')
-  const [changeTypeFilter, setChangeTypeFilter] = useState<string>('all')
-  const [orderBy, setOrderBy] = useState<'name' | 'cost' | 'price' | 'margin'>('name')
+  const [orderBy, setOrderBy] = useState<'id' | 'data' | 'duration' | 'cost' | 'price' | 'margin'>('id')
   const [order, setOrder] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState<number>(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(10)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(100)
   
   // Custom Toast State
   const [showToast, setShowToast] = useState<boolean>(false)
@@ -252,7 +263,7 @@ const AgentSmartPricingView = () => {
   // Reset page to 0 whenever filters or pricing inputs change
   useEffect(() => {
     setPage(0)
-  }, [searchQuery, regionFilter, countryFilter, changeTypeFilter, priorityOrder, globalMarkup, regionalMarkups, countryMarkups])
+  }, [searchQuery, regionFilter, countryFilter, priorityOrder, globalMarkup, regionalMarkups, countryMarkups])
 
   // Country Options derived from package list for Country Overrides
   const countryList = useMemo(() => {
@@ -360,29 +371,31 @@ const AgentSmartPricingView = () => {
       // Country Filter
       const matchCountry = countryFilter === 'all' || item.pkg.countryCode === countryFilter
 
-      // Change Type Filter
-      let matchChangeType = true
-      if (changeTypeFilter === 'changedSource') {
-        matchChangeType = item.simulatedSource?.id !== item.originalSource?.id
-      } else if (changeTypeFilter === 'lowMargin') {
-        matchChangeType = item.simulatedMargin < 10
-      } else if (changeTypeFilter === 'profitIncreased') {
-        const origProfit = item.originalPrice - item.originalCost
-        const simProfit = item.simulatedPrice - item.simulatedCostVND
-        matchChangeType = simProfit > origProfit
-      }
-
-      return matchSearch && matchRegion && matchCountry && matchChangeType
+      return matchSearch && matchRegion && matchCountry
     })
-  }, [simulationResults, searchQuery, regionFilter, countryFilter, changeTypeFilter])
+  }, [simulationResults, searchQuery, regionFilter, countryFilter])
 
   // Sorted Results
   const sortedResults = useMemo(() => {
-    const sorted = [...filteredResults]
-    sorted.sort((a, b) => {
+    const grouped = new Map<string, typeof filteredResults>()
+
+    filteredResults.forEach(item => {
+      const key = item.pkg.countryCode
+      const items = grouped.get(key) ?? []
+      items.push(item)
+      grouped.set(key, items)
+    })
+
+    const compareItems = (a: typeof filteredResults[number], b: typeof filteredResults[number]) => {
       let comparison = 0
-      if (orderBy === 'name') {
-        comparison = a.pkg.name.localeCompare(b.pkg.name)
+      if (orderBy === 'id') {
+        comparison = a.pkg.id.localeCompare(b.pkg.id)
+      } else if (orderBy === 'data') {
+        const dataA = a.pkg.dataGB === 'unlimited' ? Number.MAX_SAFE_INTEGER : a.pkg.dataGB
+        const dataB = b.pkg.dataGB === 'unlimited' ? Number.MAX_SAFE_INTEGER : b.pkg.dataGB
+        comparison = dataA - dataB
+      } else if (orderBy === 'duration') {
+        comparison = a.pkg.durationDays - b.pkg.durationDays
       } else if (orderBy === 'cost') {
         comparison = a.simulatedCostVND - b.simulatedCostVND
       } else if (orderBy === 'price') {
@@ -391,14 +404,52 @@ const AgentSmartPricingView = () => {
         comparison = a.simulatedMargin - b.simulatedMargin
       }
       return order === 'asc' ? comparison : -comparison
-    })
-    return sorted
+    }
+
+    return Array.from(grouped.values())
+      .sort((a, b) => a[0].pkg.country.localeCompare(b[0].pkg.country))
+      .flatMap(group => [...group].sort(compareItems))
   }, [filteredResults, orderBy, order])
 
   // Paginated Results
   const paginatedResults = useMemo(() => {
     return sortedResults.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
   }, [sortedResults, page, rowsPerPage])
+
+  const countryPackageCountByCode = useMemo(() => {
+    const counts = new Map<string, number>()
+    sortedResults.forEach(item => counts.set(item.pkg.countryCode, (counts.get(item.pkg.countryCode) ?? 0) + 1))
+    return counts
+  }, [sortedResults])
+
+  const countryGroupedPaginatedResults = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        key: string
+        country: string
+        region: string
+        flag: string
+        items: typeof paginatedResults
+      }
+    >()
+
+    paginatedResults.forEach(item => {
+      const key = item.pkg.countryCode
+      const group = groups.get(key) ?? {
+        key,
+        country: item.pkg.country,
+        region: item.pkg.region,
+        flag: item.pkg.flag,
+        items: []
+      }
+
+      group.items.push(item)
+      groups.set(key, group)
+    })
+
+    return Array.from(groups.values())
+  }, [paginatedResults])
 
   // Alert stats calculated from simulation
   const simulatorStats = useMemo(() => {
@@ -433,7 +484,7 @@ const AgentSmartPricingView = () => {
   }, [simulationResults])
 
   // Sorting Handler
-  const handleSortRequest = (property: 'name' | 'cost' | 'price' | 'margin') => {
+  const handleSortRequest = (property: 'id' | 'data' | 'duration' | 'cost' | 'price' | 'margin') => {
     const isAsc = orderBy === property && order === 'asc'
     setOrder(isAsc ? 'desc' : 'asc')
     setOrderBy(property)
@@ -702,7 +753,7 @@ const AgentSmartPricingView = () => {
               <Typography variant='h4' className='font-bold mbe-1'>
                 Định giá thông minh (Smart Pricing Engine)
               </Typography>
-              <Typography variant='body2' color='text.secondary' sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Typography component='div' variant='body2' color='text.secondary' sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                 Tuyển chọn nguồn cung tối ưu và tự động điều chỉnh biểu giá bán lẻ theo quy tắc phân cấp toàn sàn.
                 <Chip
                   size='small'
@@ -868,10 +919,10 @@ const AgentSmartPricingView = () => {
         </Stepper>
       </Paper>
 
-      {/* MAIN TWO-COLUMN DASHBOARD */}
+      {/* RULE CONFIGURATION + FULL-WIDTH PREVIEW TABLE */}
       <Grid2 container spacing={6}>
-        {/* LEFT COLUMN: RULES CONFIGURATION CARD */}
-        <Grid2 size={{ xs: 12, md: 5 }}>
+        {/* STEP 1: SUPPLIER CRITERION */}
+        <Grid2 size={{ xs: 12, md: 6 }}>
           <Box
             sx={{
               opacity: activeStep === 0 ? 1 : 0.4,
@@ -880,8 +931,6 @@ const AgentSmartPricingView = () => {
               height: '100%'
             }}
           >
-            <Stack spacing={6}>
-            {/* STEP 1: SUPPLIER CRITERION */}
             <Card variant='outlined'>
               <CardContent sx={{ p: 5 }}>
                 <Box className='flex items-center gap-2 mbe-4'>
@@ -1005,8 +1054,19 @@ const AgentSmartPricingView = () => {
                 </Stack>
               </CardContent>
             </Card>
+          </Box>
+        </Grid2>
 
-            {/* STEP 2: PRICING RULES (MARKUP ENGINE) */}
+        {/* STEP 2: PRICING RULES (MARKUP ENGINE) */}
+        <Grid2 size={{ xs: 12, md: 6 }}>
+          <Box
+            sx={{
+              opacity: activeStep === 0 ? 1 : 0.4,
+              pointerEvents: activeStep === 0 ? 'auto' : 'none',
+              transition: 'all 0.3s ease',
+              height: '100%'
+            }}
+          >
             <Card variant='outlined'>
               <CardContent sx={{ p: 5 }}>
                 <Box className='flex items-center gap-2 mbe-4'>
@@ -1193,12 +1253,11 @@ const AgentSmartPricingView = () => {
                 </Box>
               </CardContent>
             </Card>
-          </Stack>
-        </Box>
-      </Grid2>
+          </Box>
+        </Grid2>
 
-        {/* RIGHT COLUMN: SIMULATOR DASHBOARD (5000+ packages capability) */}
-        <Grid2 size={{ xs: 12, md: 7 }}>
+        {/* FULL-WIDTH SIMULATOR DASHBOARD (5000+ packages capability) */}
+        <Grid2 size={{ xs: 12 }}>
           <Card variant='outlined' sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* STATS HEADER WITH ADVANCED FILTERS */}
             <Box className='p-5 bg-background' sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -1212,7 +1271,7 @@ const AgentSmartPricingView = () => {
                     size='small'
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    sx={{ width: 170, backgroundColor: 'background.paper' }}
+                    sx={{ width: { xs: '100%', sm: 260 }, backgroundColor: 'background.paper' }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position='start'>
@@ -1227,7 +1286,7 @@ const AgentSmartPricingView = () => {
                     label='Vùng lọc'
                     value={regionFilter}
                     onChange={e => setRegionFilter(e.target.value)}
-                    sx={{ width: 120, backgroundColor: 'background.paper' }}
+                    sx={{ width: { xs: '100%', sm: 170 }, backgroundColor: 'background.paper' }}
                   >
                     <MenuItem value='all'>Tất cả vùng</MenuItem>
                     <MenuItem value='Asia'>Châu Á</MenuItem>
@@ -1241,7 +1300,7 @@ const AgentSmartPricingView = () => {
                     label='Quốc gia lọc'
                     value={countryFilter}
                     onChange={e => setCountryFilter(e.target.value)}
-                    sx={{ width: 140, backgroundColor: 'background.paper' }}
+                    sx={{ width: { xs: '100%', sm: 200 }, backgroundColor: 'background.paper' }}
                   >
                     <MenuItem value='all'>Tất cả quốc gia</MenuItem>
                     {countryList.map(c => (
@@ -1249,19 +1308,6 @@ const AgentSmartPricingView = () => {
                         {c.flag} {c.label}
                       </MenuItem>
                     ))}
-                  </TextField>
-                  <TextField
-                    select
-                    size='small'
-                    label='Trạng thái biến động'
-                    value={changeTypeFilter}
-                    onChange={e => setChangeTypeFilter(e.target.value)}
-                    sx={{ width: 175, backgroundColor: 'background.paper' }}
-                  >
-                    <MenuItem value='all'>Tất cả gói</MenuItem>
-                    <MenuItem value='changedSource'>Đổi nguồn cung</MenuItem>
-                    <MenuItem value='lowMargin'>Biên lãi thấp (&lt;10%)</MenuItem>
-                    <MenuItem value='profitIncreased'>Lợi nhuận tăng thêm</MenuItem>
                   </TextField>
                 </Stack>
               </Box>
@@ -1352,190 +1398,167 @@ const AgentSmartPricingView = () => {
             {/* PREVIEW TABLE WITH SORTABLE HEADERS */}
             <Box className='flex-1 overflow-auto p-4 bg-background' sx={{ maxHeight: 600 }}>
               <TableContainer>
-                <Table size='medium' stickyHeader>
+                <Table size='medium' stickyHeader sx={{ minWidth: 1180 }}>
                   <TableHead>
                     <TableRow>
-                      {/* Name Sortable Header */}
                       <TableCell>
                         <TableSortLabel
-                          active={orderBy === 'name'}
-                          direction={orderBy === 'name' ? order : 'asc'}
-                          onClick={() => handleSortRequest('name')}
+                          active={orderBy === 'id'}
+                          direction={orderBy === 'id' ? order : 'asc'}
+                          onClick={() => handleSortRequest('id')}
                         >
-                          Tên gói cước
+                          Mã gói
                         </TableSortLabel>
                       </TableCell>
-
-                      <TableCell>Nhà cung cấp (Supplier)</TableCell>
-
-                      {/* Cost Sortable Header */}
+                      <TableCell>Vùng/Quốc gia</TableCell>
+                      <TableCell>Loại SIM</TableCell>
+                      <TableCell>Loại gói</TableCell>
+                      <TableCell align='right'>
+                        <TableSortLabel
+                          active={orderBy === 'data'}
+                          direction={orderBy === 'data' ? order : 'asc'}
+                          onClick={() => handleSortRequest('data')}
+                        >
+                          Dung lượng
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align='right'>
+                        <TableSortLabel
+                          active={orderBy === 'duration'}
+                          direction={orderBy === 'duration' ? order : 'asc'}
+                          onClick={() => handleSortRequest('duration')}
+                        >
+                          Số ngày
+                        </TableSortLabel>
+                      </TableCell>
                       <TableCell align='right'>
                         <TableSortLabel
                           active={orderBy === 'cost'}
                           direction={orderBy === 'cost' ? order : 'asc'}
                           onClick={() => handleSortRequest('cost')}
                         >
-                          Giá vốn sỉ
+                          Giá nhập
                         </TableSortLabel>
                       </TableCell>
-
-                      {/* Sell Price Sortable Header */}
                       <TableCell align='right'>
                         <TableSortLabel
                           active={orderBy === 'price'}
                           direction={orderBy === 'price' ? order : 'asc'}
                           onClick={() => handleSortRequest('price')}
                         >
-                          Giá bán lẻ mới
+                          Giá bán lẻ (Hiển thị lên app)
                         </TableSortLabel>
                       </TableCell>
-
-                      {/* Margin Sortable Header */}
                       <TableCell align='right'>
                         <TableSortLabel
                           active={orderBy === 'margin'}
                           direction={orderBy === 'margin' ? order : 'asc'}
                           onClick={() => handleSortRequest('margin')}
                         >
-                          Biên lãi mới
+                          Tỉ lệ lợi nhuận
                         </TableSortLabel>
                       </TableCell>
-
-                      <TableCell align='center'>Tỉ lệ áp dụng</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {paginatedResults.map(item => {
-                      const costDiff = item.simulatedCostVND - item.originalCost
-                      const priceDiff = item.simulatedPrice - item.originalPrice
-                      const marginDiff = item.simulatedMargin - item.originalMargin
-                      const isLowMargin = item.simulatedMargin < 10
-
-                      return (
-                        <TableRow key={item.pkg.id} hover>
-                          {/* Name & ID */}
-                          <TableCell sx={{ py: 2.5 }}>
-                            <Box className='flex items-center gap-2.5'>
-                              <Typography fontSize={20}>{item.pkg.flag}</Typography>
-                              <Box>
-                                <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                                  {item.pkg.name}
-                                </Typography>
-                                <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.75rem' }}>
-                                  {item.pkg.id} · {item.pkg.region}
-                                </Typography>
-                              </Box>
+                    {countryGroupedPaginatedResults.map(group => (
+                      <Fragment key={group.key}>
+                        <TableRow>
+                          <TableCell
+                            colSpan={9}
+                            sx={{
+                              py: 1.25,
+                              backgroundColor: 'action.hover',
+                              borderTop: '1px solid',
+                              borderColor: 'divider'
+                            }}
+                          >
+                            <Box className='flex items-center gap-2'>
+                              <Typography fontSize={18}>{group.flag}</Typography>
+                              <Typography sx={{ fontWeight: 700 }}>
+                                {group.country}
+                              </Typography>
+                              <Typography variant='caption' color='text.secondary'>
+                                {group.region} · {countryPackageCountByCode.get(group.key) ?? group.items.length} gói
+                              </Typography>
                             </Box>
-                          </TableCell>
-
-                          {/* Supplier Source Change */}
-                          <TableCell>
-                            <Box>
-                              <Typography sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
-                                {item.simulatedSource?.supplier}
-                              </Typography>
-                              {item.simulatedSource?.id !== item.originalSource?.id ? (
-                                <Chip
-                                  size='small'
-                                  label={`Đổi nguồn từ ${item.originalSource?.supplierCode ?? '—'}`}
-                                  color='secondary'
-                                  variant='tonal'
-                                  sx={{ height: 18, fontSize: '0.65rem', mt: 0.5 }}
-                                />
-                              ) : (
-                                <Typography color='text.secondary' sx={{ fontSize: '0.75rem' }}>
-                                  Giữ nguyên nguồn
-                                </Typography>
-                              )}
-                            </Box>
-                          </TableCell>
-
-                          {/* Cost Change */}
-                          <TableCell align='right'>
-                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                              {item.simulatedCostVND.toLocaleString('vi-VN')}đ
-                            </Typography>
-                            {costDiff !== 0 && (
-                              <Typography
-                                sx={{
-                                  fontSize: '0.75rem',
-                                  color: costDiff < 0 ? 'success.main' : 'error.main',
-                                  fontWeight: 500
-                                }}
-                              >
-                                {costDiff < 0 ? '-' : '+'}
-                                {Math.abs(costDiff).toLocaleString('vi-VN')}đ
-                              </Typography>
-                            )}
-                          </TableCell>
-
-                          {/* Retail Price Change */}
-                          <TableCell align='right'>
-                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'primary.main' }}>
-                              {item.simulatedPrice.toLocaleString('vi-VN')}đ
-                            </Typography>
-                            {priceDiff !== 0 && (
-                              <Typography
-                                sx={{
-                                  fontSize: '0.75rem',
-                                  color: priceDiff > 0 ? 'success.main' : 'error.main',
-                                  fontWeight: 500
-                                }}
-                              >
-                                {priceDiff > 0 ? '+' : ''}
-                                {priceDiff.toLocaleString('vi-VN')}đ
-                              </Typography>
-                            )}
-                          </TableCell>
-
-                          {/* Profit Margin */}
-                          <TableCell align='right'>
-                            <Stack direction='row' alignItems='center' justifyContent='flex-end' spacing={1.5}>
-                              <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', textDecoration: 'line-through' }}>
-                                {item.originalMargin}%
-                              </Typography>
-                              <Chip
-                                size='small'
-                                label={`${item.simulatedMargin}%`}
-                                color={isLowMargin ? 'error' : item.simulatedMargin >= 30 ? 'success' : 'warning'}
-                                variant='tonal'
-                                sx={{ height: 22, fontSize: '0.8rem', fontWeight: 600 }}
-                              />
-                            </Stack>
-                            {marginDiff !== 0 && (
-                              <Typography
-                                sx={{
-                                  fontSize: '0.75rem',
-                                  color: marginDiff > 0 ? 'success.main' : 'error.main',
-                                  fontWeight: 500,
-                                  mt: 0.5
-                                }}
-                              >
-                                {marginDiff > 0 ? '+' : ''}
-                                {marginDiff}%
-                              </Typography>
-                            )}
-                          </TableCell>
-
-                          {/* Markup rule type tag */}
-                          <TableCell align='center'>
-                            <Tooltip title={`Cơ chế định giá: Quy tắc ${item.ruleType} (${item.appliedMarkup}%)`}>
-                              <Chip
-                                size='small'
-                                label={`${item.appliedMarkup}%`}
-                                color={item.ruleType === 'Quốc gia' ? 'warning' : item.ruleType === 'Vùng' ? 'info' : 'default'}
-                                variant='outlined'
-                                sx={{ fontSize: '0.8rem', height: 22 }}
-                              />
-                            </Tooltip>
                           </TableCell>
                         </TableRow>
-                      )
-                    })}
+
+                        {group.items.map(item => (
+                          <TableRow key={item.pkg.id} hover>
+                            <TableCell sx={{ py: 2.5, whiteSpace: 'nowrap' }}>
+                              <Typography sx={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                                {item.pkg.id}
+                              </Typography>
+                              <Typography variant='caption' color='text.secondary'>
+                                {item.pkg.name}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box className='flex items-center gap-2'>
+                                <Typography fontSize={18}>{item.pkg.flag}</Typography>
+                                <Box>
+                                  <Typography variant='body2' sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                                    {item.pkg.country}
+                                  </Typography>
+                                  <Typography variant='caption' color='text.secondary'>
+                                    {item.pkg.region}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                size='small'
+                                variant='tonal'
+                                color={item.pkg.simType === 'esim' ? 'primary' : 'warning'}
+                                label={simTypeLabel(item.pkg)}
+                                icon={<i className={`${item.pkg.simType === 'esim' ? 'tabler-device-mobile' : 'tabler-device-sd-card'} text-[14px]`} />}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                size='small'
+                                variant='tonal'
+                                color={item.pkg.quotaType === 'daily' ? 'info' : 'secondary'}
+                                label={quotaTypeLabel(item.pkg)}
+                              />
+                            </TableCell>
+                            <TableCell align='right'>
+                              <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                                {formatPackageData(item.pkg)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align='right'>
+                              <Typography variant='body2'>{item.pkg.durationDays} ngày</Typography>
+                            </TableCell>
+                            <TableCell align='right'>
+                              <Typography sx={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                                {item.simulatedCostVND.toLocaleString('vi-VN')}đ
+                              </Typography>
+                            </TableCell>
+                            <TableCell align='right'>
+                              <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: 'primary.main' }}>
+                                {item.simulatedPrice.toLocaleString('vi-VN')}đ
+                              </Typography>
+                            </TableCell>
+                            <TableCell align='right'>
+                              <Chip
+                                size='small'
+                                variant='tonal'
+                                color={item.simulatedMargin >= 30 ? 'success' : item.simulatedMargin >= 10 ? 'warning' : 'error'}
+                                label={`${item.simulatedMargin > 0 ? '+' : ''}${item.simulatedMargin}%`}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
+                    ))}
 
                     {filteredResults.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} align='center' sx={{ py: 8 }}>
+                        <TableCell colSpan={9} align='center' sx={{ py: 8 }}>
                           <Typography color='text.secondary'>Không tìm thấy gói cước nào phù hợp.</Typography>
                         </TableCell>
                       </TableRow>
@@ -1547,7 +1570,7 @@ const AgentSmartPricingView = () => {
 
             {/* PERFORMANCE PAGINATION BAR */}
             <TablePagination
-              rowsPerPageOptions={[5, 10, 20, 50]}
+              rowsPerPageOptions={[50, 100, 200]}
               component='div'
               count={filteredResults.length}
               rowsPerPage={rowsPerPage}

@@ -57,7 +57,13 @@ const AgentPackagesView = () => {
     const storedPkgs = localStorage.getItem('3m_agent_packages')
     if (storedPkgs) {
       try {
-        setPackages(JSON.parse(storedPkgs))
+        const parsed = JSON.parse(storedPkgs) as AgentPackage[]
+        const nextPackages = Array.isArray(parsed) && parsed.length >= AGENT_PACKAGES.length
+          ? parsed
+          : AGENT_PACKAGES
+
+        setPackages(nextPackages)
+        localStorage.setItem('3m_agent_packages', JSON.stringify(nextPackages))
       } catch (e) {
         console.error(e)
       }

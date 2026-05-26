@@ -100,7 +100,7 @@ export const marginPct = (pkg: AgentPackage): number => {
   return Math.round(((pkg.sellPriceVND - c) / c) * 100)
 }
 
-export const AGENT_PACKAGES: AgentPackage[] = [
+const BASE_AGENT_PACKAGES: AgentPackage[] = [
   {
     id: 'PKG-001',
     name: 'eSIM đi Nhật Bản',
@@ -251,6 +251,98 @@ export const AGENT_PACKAGES: AgentPackage[] = [
     active: true,
     updatedAt: '2026-05-20 09:25'
   }
+]
+
+type CountrySeed = {
+  code: string
+  country: string
+  flag: string
+  region: Region
+  baseCostUSD: number
+}
+
+const COUNTRY_SEEDS: CountrySeed[] = [
+  { code: 'JP', country: 'Nhật Bản', flag: '🇯🇵', region: 'Asia', baseCostUSD: 4.2 },
+  { code: 'KR', country: 'Hàn Quốc', flag: '🇰🇷', region: 'Asia', baseCostUSD: 5.8 },
+  { code: 'SEA', country: 'Đông Nam Á', flag: '🌏', region: 'Asia', baseCostUSD: 3.5 },
+  { code: 'TH', country: 'Thái Lan', flag: '🇹🇭', region: 'Asia', baseCostUSD: 3.2 },
+  { code: 'VN', country: 'Việt Nam', flag: '🇻🇳', region: 'Asia', baseCostUSD: 2.6 },
+  { code: 'SG', country: 'Singapore', flag: '🇸🇬', region: 'Asia', baseCostUSD: 3.8 },
+  { code: 'MY', country: 'Malaysia', flag: '🇲🇾', region: 'Asia', baseCostUSD: 3.4 },
+  { code: 'ID', country: 'Indonesia', flag: '🇮🇩', region: 'Asia', baseCostUSD: 3.1 },
+  { code: 'CN', country: 'Trung Quốc', flag: '🇨🇳', region: 'Asia', baseCostUSD: 4.8 },
+  { code: 'TW', country: 'Đài Loan', flag: '🇹🇼', region: 'Asia', baseCostUSD: 4.1 },
+  { code: 'US', country: 'Hoa Kỳ', flag: '🇺🇸', region: 'America', baseCostUSD: 8.8 },
+  { code: 'AU', country: 'Úc', flag: '🇦🇺', region: 'Oceania', baseCostUSD: 7.4 },
+  { code: 'EU', country: 'Châu Âu (30 nước)', flag: '🇪🇺', region: 'Europe', baseCostUSD: 9.2 },
+  { code: 'FR', country: 'Pháp', flag: '🇫🇷', region: 'Europe', baseCostUSD: 6.6 },
+  { code: 'DE', country: 'Đức', flag: '🇩🇪', region: 'Europe', baseCostUSD: 6.8 },
+  { code: 'GB', country: 'Anh', flag: '🇬🇧', region: 'Europe', baseCostUSD: 7.1 },
+  { code: 'GL', country: 'Toàn cầu', flag: '🌐', region: 'Global', baseCostUSD: 18.5 }
+]
+
+const DATA_OPTIONS: Array<number | 'unlimited'> = [1, 3, 5, 10, 20, 30, 50, 'unlimited']
+const DURATION_OPTIONS = [1, 3, 5, 7, 10, 15, 30, 45, 60]
+const SUPPLIER_SEEDS = [
+  { supplier: 'eSIM Access', supplierCode: 'ESA', costOffset: 0, qualityRating: 4.8 },
+  { supplier: 'Airalo Wholesale', supplierCode: 'AIR', costOffset: 0.08, qualityRating: 4.9 },
+  { supplier: 'GoMoWorld', supplierCode: 'GMW', costOffset: -0.05, qualityRating: 4.6 },
+  { supplier: 'BNESIM', supplierCode: 'BNE', costOffset: 0.14, qualityRating: 4.4 }
+]
+
+const roundToThousand = (value: number) => Math.round(value / 1000) * 1000
+
+const buildGeneratedPackage = (country: CountrySeed, index: number): AgentPackage => {
+  const dataGB = DATA_OPTIONS[index % DATA_OPTIONS.length]
+  const durationDays = DURATION_OPTIONS[(index + Math.floor(index / DATA_OPTIONS.length)) % DURATION_OPTIONS.length]
+  const quotaType: QuotaType = index % 3 === 0 ? 'daily' : 'total'
+  const simType: SimType = index % 8 === 0 ? 'physical' : 'esim'
+  const type: AgentPackage['type'] = simType === 'physical' && index % 4 === 0 ? 'Data + Call' : 'Data only'
+  const dataMultiplier = dataGB === 'unlimited' ? 3.8 : Math.max(1, dataGB / 3)
+  const durationMultiplier = Math.max(1, durationDays / 7)
+  const simMultiplier = simType === 'physical' ? 1.18 : 1
+  const rawCost = country.baseCostUSD * dataMultiplier * durationMultiplier * simMultiplier
+  const costUSD = Number(Math.max(country.baseCostUSD, rawCost).toFixed(2))
+  const markup = country.region === 'Europe' ? 0.22 : country.region === 'America' ? 0.18 : 0.2
+  const sellPriceVND = roundToThousand(costUSD * USD_VND * (1 + markup))
+  const code = `${country.code}-${String(index + 1).padStart(3, '0')}`
+
+  return {
+    id: `PKG-${code}`,
+    name: `${simType === 'esim' ? 'eSIM' : 'SIM vật lý'} ${country.country} ${dataGB === 'unlimited' ? 'Không giới hạn' : `${dataGB}GB`} ${durationDays} ngày`,
+    country: country.country,
+    countryCode: country.code,
+    flag: country.flag,
+    region: country.region,
+    simType,
+    quotaType,
+    dataGB,
+    durationDays,
+    type,
+    sources: SUPPLIER_SEEDS.map((supplier, supplierIndex) => ({
+      id: `${country.code.toLowerCase()}-${index + 1}-${supplierIndex + 1}`,
+      supplier: supplier.supplier,
+      supplierCode: supplier.supplierCode,
+      costUSD: Number((costUSD * (1 + supplier.costOffset + supplierIndex * 0.025)).toFixed(2)),
+      status: supplierIndex === 3 && index % 11 === 0 ? 'paused' : 'available',
+      lastSync: `2026-05-${String(20 + (index % 7)).padStart(2, '0')} ${String(8 + (index % 10)).padStart(2, '0')}:30`,
+      qualityRating: supplier.qualityRating,
+      salesCount: 40 + index * 7 + supplierIndex * 18
+    })),
+    pinnedSourceId: index % 17 === 0 ? `${country.code.toLowerCase()}-${index + 1}-1` : null,
+    sellPriceVND,
+    active: index % 13 !== 0,
+    updatedAt: `2026-05-${String(20 + (index % 7)).padStart(2, '0')} ${String(9 + (index % 9)).padStart(2, '0')}:15`
+  }
+}
+
+const GENERATED_AGENT_PACKAGES: AgentPackage[] = COUNTRY_SEEDS.flatMap(country =>
+  Array.from({ length: 48 }, (_, index) => buildGeneratedPackage(country, index))
+)
+
+export const AGENT_PACKAGES: AgentPackage[] = [
+  ...BASE_AGENT_PACKAGES,
+  ...GENERATED_AGENT_PACKAGES
 ]
 
 export const USD_TO_VND = USD_VND
