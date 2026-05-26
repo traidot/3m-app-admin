@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **esim-market** (5382 symbols, 9123 relationships, 58 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **3m-app-admin** (5060 symbols, 9571 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -24,10 +24,10 @@ This project is indexed by GitNexus as **esim-market** (5382 symbols, 9123 relat
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/esim-market/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/esim-market/clusters` | All functional areas |
-| `gitnexus://repo/esim-market/processes` | All execution flows |
-| `gitnexus://repo/esim-market/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/3m-app-admin/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/3m-app-admin/clusters` | All functional areas |
+| `gitnexus://repo/3m-app-admin/processes` | All execution flows |
+| `gitnexus://repo/3m-app-admin/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

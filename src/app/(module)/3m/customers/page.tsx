@@ -1,11 +1,5 @@
-import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
+import CustomersView from '@/views/3m/customers/CustomersView'
 
-const Page = () => (
-  <AdminPlaceholder
-    group='Admin 3M'
-    title='Quản lý khách hàng theo đại lý'
-    description='Xem toàn bộ khách hàng của từng đại lý.'
-  />
-)
+const Page = () => <CustomersView />
 
 export default Page

@@ -1,11 +1,5 @@
-import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
+import PackagesView from '@/views/3m/packages/PackagesView'
 
-const Page = () => (
-  <AdminPlaceholder
-    group='Admin 3M'
-    title='Bảng giá gói cước (View only)'
-    description='Xem bảng giá gói cước hiện hành — chỉ xem, không sửa.'
-  />
-)
+const Page = () => <PackagesView />
 
 export default Page

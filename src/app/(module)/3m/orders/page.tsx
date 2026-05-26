@@ -1,11 +1,5 @@
-import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
+import OrdersView from '@/views/3m/orders/OrdersView'
 
-const Page = () => (
-  <AdminPlaceholder
-    group='Admin 3M'
-    title='Quản lý đơn hàng theo đại lý'
-    description='Tổng hợp đơn hàng toàn hệ thống, phân theo đại lý.'
-  />
-)
+const Page = () => <OrdersView />
 
 export default Page

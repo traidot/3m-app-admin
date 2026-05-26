@@ -1,7 +1,5 @@
-import AdminPlaceholder from '@/views/shared/AdminPlaceholder'
+import AdminDashboard from '@/views/dashboard/AdminDashboard'
 
-const Page = () => (
-  <AdminPlaceholder group='Admin 3M' title='Bảng điều khiển tổng' description='Tổng quan hệ thống 3M.' />
-)
+const Page = () => <AdminDashboard />
 
 export default Page

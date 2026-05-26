@@ -13,7 +13,7 @@ import { useTheme } from '@mui/material/styles'
 import PageHeader from '@/components/layout/shared/PageHeader'
 import CardStatHorizontal from '@/components/card-statistics/Horizontal'
 
-import AppReactApexCharts from '@/libs/styles/AppReactApexCharts'
+const AppReactApexCharts = dynamic(() => import('@/libs/styles/AppReactApexCharts'), { ssr: false })
 
 const AdminDashboard = () => {
   const theme = useTheme()
